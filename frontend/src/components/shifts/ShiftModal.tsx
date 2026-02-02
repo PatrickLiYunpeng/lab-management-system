@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
-import { Modal, Input, Select, Switch, useToast, useForm, Form, FormItem, type FormInstance } from '../ui';
+import { Modal, Form, Input, Select, Switch, Row, Col, App } from 'antd';
 import { shiftService } from '../../services/shiftService';
 import { laboratoryService } from '../../services/laboratoryService';
 import type { Shift, ShiftFormData, Laboratory } from '../../types';
@@ -22,25 +22,10 @@ interface ShiftFormValues {
 }
 
 export function ShiftModal({ visible, shift, onSuccess, onCancel }: ShiftModalProps) {
-  const [form] = useForm<ShiftFormValues>({
-    initialValues: {
-      name: '',
-      code: '',
-      start_time: '',
-      end_time: '',
-      laboratory_id: undefined,
-      is_active: true,
-    },
-    rules: {
-      name: [{ required: true, message: '请输入班次名称' }],
-      code: [{ required: true, message: '请输入班次代码' }],
-      start_time: [{ required: true, message: '请选择开始时间' }],
-      end_time: [{ required: true, message: '请选择结束时间' }],
-    },
-  });
+  const [form] = Form.useForm<ShiftFormValues>();
   const [loading, setLoading] = useState(false);
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
-  const toast = useToast();
+  const { message } = App.useApp();
 
   useEffect(() => {
     if (visible) {
@@ -87,10 +72,10 @@ export function ShiftModal({ visible, shift, onSuccess, onCancel }: ShiftModalPr
           ...submitData,
           is_active: values.is_active,
         });
-        toast.success('班次更新成功');
+        message.success('班次更新成功');
       } else {
         await shiftService.createShift(submitData);
-        toast.success('班次创建成功');
+        message.success('班次创建成功');
       }
 
       onSuccess();
@@ -98,7 +83,7 @@ export function ShiftModal({ visible, shift, onSuccess, onCancel }: ShiftModalPr
       if (error && typeof error === 'object' && 'errorFields' in error) {
         return;
       }
-      toast.error(shift ? '更新失败' : '创建失败');
+      message.error(shift ? '更新失败' : '创建失败');
     } finally {
       setLoading(false);
     }
@@ -116,42 +101,55 @@ export function ShiftModal({ visible, shift, onSuccess, onCancel }: ShiftModalPr
       cancelText="取消"
       destroyOnClose
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="name" label="班次名称">
-            <Input placeholder="请输入班次名称" />
-          </FormItem>
-          <FormItem name="code" label="班次代码">
-            <Input placeholder="请输入班次代码" disabled={!!shift} />
-          </FormItem>
-        </div>
+      <Form form={form} layout="vertical">
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="name" label="班次名称" rules={[{ required: true, message: '请输入班次名称' }]}>
+              <Input placeholder="请输入班次名称" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="code" label="班次代码" rules={[{ required: true, message: '请输入班次代码' }]}>
+              <Input placeholder="请输入班次代码" disabled={!!shift} />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="start_time" label="开始时间">
-            <Input type="time" className="w-full" />
-          </FormItem>
-          <FormItem name="end_time" label="结束时间" extra="支持跨午夜班次，如22:00-06:00">
-            <Input type="time" className="w-full" />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="start_time" label="开始时间" rules={[{ required: true, message: '请选择开始时间' }]}>
+              <Input type="time" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="end_time" label="结束时间" extra="支持跨午夜班次，如22:00-06:00" rules={[{ required: true, message: '请选择结束时间' }]}>
+              <Input type="time" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="laboratory_id" label="适用实验室">
-            <Select
-              placeholder="全部实验室"
-              allowClear
-              options={laboratories.map((lab) => ({
-                label: `${lab.name} (${lab.code})`,
-                value: lab.id,
-              }))}
-            />
-          </FormItem>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="laboratory_id" label="适用实验室">
+              <Select
+                placeholder="全部实验室"
+                allowClear
+                optionFilterProp="label"
+                options={laboratories.map((lab) => ({
+                  label: `${lab.name} (${lab.code})`,
+                  value: lab.id,
+                }))}
+              />
+            </Form.Item>
+          </Col>
           {shift && (
-            <FormItem name="is_active" label="状态" valuePropName="checked">
-              <Switch />
-            </FormItem>
+            <Col span={12}>
+              <Form.Item name="is_active" label="状态" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </Col>
           )}
-        </div>
+        </Row>
       </Form>
     </Modal>
   );

@@ -1,30 +1,32 @@
 import { useState, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Layout, Menu, Dropdown, Tag, Avatar, Button, theme } from 'antd';
+import type { MenuProps } from 'antd';
 import {
-  Squares2X2Icon,
-  UsersIcon,
-  BeakerIcon,
-  WrenchScrewdriverIcon,
-  DocumentTextIcon,
-  InboxIcon,
-  Cog6ToothIcon,
-  UserIcon,
-  ArrowRightOnRectangleIcon,
-  Bars3Icon,
-  BuildingOfficeIcon,
-  ArrowsRightLeftIcon,
-  ClipboardDocumentListIcon,
-  ClockIcon,
-  TagIcon,
-  UserGroupIcon,
-  MagnifyingGlassIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
-} from '@heroicons/react/24/outline';
-import { Tag } from '../components/ui';
+  AppstoreOutlined,
+  TeamOutlined,
+  ExperimentOutlined,
+  ToolOutlined,
+  FileTextOutlined,
+  InboxOutlined,
+  SettingOutlined,
+  UserOutlined,
+  LogoutOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  BankOutlined,
+  SwapOutlined,
+  SolutionOutlined,
+  ClockCircleOutlined,
+  TagOutlined,
+  UsergroupAddOutlined,
+  SearchOutlined,
+} from '@ant-design/icons';
 import { useAuthStore } from '../stores/authStore';
 import { canAccessRoute } from '../utils/permissions';
 import type { UserRole } from '../types';
+
+const { Header, Sider, Content } = Layout;
 
 // Role labels and colors for header display
 const roleLabels: Record<string, string> = {
@@ -35,48 +37,48 @@ const roleLabels: Record<string, string> = {
   viewer: '访客',
 };
 
-const roleColors: Record<string, 'error' | 'warning' | 'processing' | 'success' | 'default'> = {
-  admin: 'error',
-  manager: 'warning',
-  engineer: 'processing',
-  technician: 'success',
+const roleColors: Record<string, string> = {
+  admin: 'red',
+  manager: 'orange',
+  engineer: 'blue',
+  technician: 'green',
   viewer: 'default',
 };
 
 // Menu item configuration with route for permission checking
 interface MenuItemConfig {
   key: string;
-  icon?: React.ElementType;
+  icon?: React.ReactNode;
   label: string;
   route?: string;
   children?: MenuItemConfig[];
 }
 
 const allMenuItems: MenuItemConfig[] = [
-  { key: '/work-orders', icon: DocumentTextIcon, label: '工单管理', route: '/work-orders' },
+  { key: '/work-orders', icon: <FileTextOutlined />, label: '工单管理', route: '/work-orders' },
   {
     key: 'dashboard-group',
-    icon: Squares2X2Icon,
+    icon: <AppstoreOutlined />,
     label: '仪表板',
     children: [
       { key: '/dashboard', label: '综合仪表板', route: '/dashboard' },
       { key: '/equipment-dashboard', label: '设备仪表板', route: '/equipment-dashboard' },
       { key: '/personnel-dashboard', label: '人员仪表板', route: '/personnel-dashboard' },
-      { key: '/work-order-query', icon: MagnifyingGlassIcon, label: '工单查询', route: '/work-order-query' },
+      { key: '/work-order-query', icon: <SearchOutlined />, label: '工单查询', route: '/work-order-query' },
     ],
   },
   {
     key: 'location-group',
-    icon: BuildingOfficeIcon,
+    icon: <BankOutlined />,
     label: '地址管理',
     children: [
-      { key: '/sites', icon: BuildingOfficeIcon, label: '站点管理', route: '/sites' },
-      { key: '/laboratories', icon: BeakerIcon, label: '实验室管理', route: '/laboratories' },
+      { key: '/sites', icon: <BankOutlined />, label: '站点管理', route: '/sites' },
+      { key: '/laboratories', icon: <ExperimentOutlined />, label: '实验室管理', route: '/laboratories' },
     ],
   },
   {
     key: 'personnel-group',
-    icon: UsersIcon,
+    icon: <TeamOutlined />,
     label: '人员管理',
     children: [
       { key: '/personnel', label: '人员列表', route: '/personnel' },
@@ -86,23 +88,23 @@ const allMenuItems: MenuItemConfig[] = [
       { key: '/shifts', label: '班次管理', route: '/shifts' },
     ],
   },
-  { key: '/equipment', icon: WrenchScrewdriverIcon, label: '设备管理', route: '/equipment' },
-  { key: '/methods', icon: ClipboardDocumentListIcon, label: '分析/测试方法', route: '/methods' },
-  { key: '/materials', icon: InboxIcon, label: '物料管理', route: '/materials' },
+  { key: '/equipment', icon: <ToolOutlined />, label: '设备管理', route: '/equipment' },
+  { key: '/methods', icon: <SolutionOutlined />, label: '分析/测试方法', route: '/methods' },
+  { key: '/materials', icon: <InboxOutlined />, label: '物料管理', route: '/materials' },
   {
     key: 'client-group',
-    icon: UserGroupIcon,
+    icon: <UsergroupAddOutlined />,
     label: '客户与SLA',
     children: [
       { key: '/clients', label: '客户管理', route: '/clients' },
-      { key: '/client-slas', icon: ClockIcon, label: 'SLA配置', route: '/client-slas' },
-      { key: '/source-categories', icon: TagIcon, label: '来源类别', route: '/source-categories' },
+      { key: '/client-slas', icon: <ClockCircleOutlined />, label: 'SLA配置', route: '/client-slas' },
+      { key: '/source-categories', icon: <TagOutlined />, label: '来源类别', route: '/source-categories' },
     ],
   },
-  { key: '/handovers', icon: ArrowsRightLeftIcon, label: '任务交接', route: '/handovers' },
-  { key: '/audit-logs', icon: DocumentTextIcon, label: '审计日志', route: '/audit-logs' },
-  { key: '/user-management', icon: UserGroupIcon, label: '用户管理', route: '/user-management' },
-  { key: '/settings', icon: Cog6ToothIcon, label: '系统设置', route: '/settings' },
+  { key: '/handovers', icon: <SwapOutlined />, label: '任务交接', route: '/handovers' },
+  { key: '/audit-logs', icon: <FileTextOutlined />, label: '审计日志', route: '/audit-logs' },
+  { key: '/user-management', icon: <UsergroupAddOutlined />, label: '用户管理', route: '/user-management' },
+  { key: '/settings', icon: <SettingOutlined />, label: '系统设置', route: '/settings' },
 ];
 
 // Filter menu items based on user role permissions
@@ -128,27 +130,56 @@ function filterMenuByRole(items: MenuItemConfig[], role: UserRole | undefined): 
     .filter(Boolean) as MenuItemConfig[];
 }
 
+// Convert MenuItemConfig to antd MenuProps items
+function convertToMenuItems(items: MenuItemConfig[]): MenuProps['items'] {
+  return items.map(item => {
+    if (item.children) {
+      return {
+        key: item.key,
+        icon: item.icon,
+        label: item.label,
+        children: convertToMenuItems(item.children),
+      };
+    }
+    return {
+      key: item.key,
+      icon: item.icon,
+      label: item.label,
+    };
+  });
+}
+
 export function MainLayout() {
   const [collapsed, setCollapsed] = useState(false);
-  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const { token } = theme.useToken();
 
   const menuItems = useMemo(
     () => filterMenuByRole(allMenuItems, user?.role),
     [user?.role]
   );
 
-  const handleMenuClick = (key: string) => {
-    navigate(key);
-  };
+  const antdMenuItems = useMemo(
+    () => convertToMenuItems(menuItems),
+    [menuItems]
+  );
 
-  const toggleExpanded = (key: string) => {
-    setExpandedKeys(prev =>
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-    );
+  // Find selected keys and open keys based on current path
+  const selectedKeys = [location.pathname];
+  const defaultOpenKeys = useMemo(() => {
+    const openKeys: string[] = [];
+    menuItems.forEach(item => {
+      if (item.children?.some(child => child.key === location.pathname)) {
+        openKeys.push(item.key);
+      }
+    });
+    return openKeys;
+  }, [menuItems, location.pathname]);
+
+  const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
+    navigate(key);
   };
 
   const handleLogout = () => {
@@ -156,27 +187,59 @@ export function MainLayout() {
     navigate('/login');
   };
 
-  const isActive = (key: string) => location.pathname === key;
-  const isParentActive = (item: MenuItemConfig) =>
-    item.children?.some(child => location.pathname === child.key);
+  const userMenuItems: MenuProps['items'] = [
+    {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: '个人资料',
+      onClick: () => navigate('/settings'),
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: '退出登录',
+      danger: true,
+      onClick: handleLogout,
+    },
+  ];
 
   return (
-    <div className="min-h-screen flex">
-      {/* Sidebar */}
-      <aside
-        className={`fixed left-0 top-0 bottom-0 bg-neutral-900 text-white transition-all duration-200 z-20 ${
-          collapsed ? 'w-20' : 'w-52'
-        }`}
+    <Layout style={{ minHeight: '100vh' }}>
+      <Sider
+        trigger={null}
+        collapsible
+        collapsed={collapsed}
+        theme="dark"
+        width={208}
+        style={{
+          overflow: 'auto',
+          height: '100vh',
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          bottom: 0,
+        }}
       >
         {/* Logo */}
-        <div className="h-16 flex items-center justify-center gap-2 border-b border-neutral-700 px-2">
+        <div style={{
+          height: 64,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          padding: '0 8px',
+        }}>
           <svg
             width={collapsed ? 28 : 32}
             height={collapsed ? 28 : 32}
             viewBox="0 0 40 40"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            className="flex-shrink-0"
+            style={{ flexShrink: 0 }}
           >
             <circle cx="20" cy="20" r="18" stroke="#3b82f6" strokeWidth="2" fill="#111827" />
             <path
@@ -193,124 +256,74 @@ export function MainLayout() {
             <circle cx="22" cy="22" r="1" fill="#fff" opacity="0.6" />
           </svg>
           {!collapsed && (
-            <span className="text-sm font-bold whitespace-nowrap">QAS实验室管理</span>
+            <span style={{ color: '#fff', fontSize: 14, fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+              QAS实验室管理
+            </span>
           )}
         </div>
 
         {/* Menu */}
-        <nav className="overflow-y-auto h-[calc(100vh-64px)] py-2">
-          {menuItems.map(item => {
-            const Icon = item.icon;
-            const hasChildren = item.children && item.children.length > 0;
-            const isExpanded = expandedKeys.includes(item.key);
-            const active = isActive(item.key) || isParentActive(item);
+        <Menu
+          theme="dark"
+          mode="inline"
+          selectedKeys={selectedKeys}
+          defaultOpenKeys={defaultOpenKeys}
+          items={antdMenuItems}
+          onClick={handleMenuClick}
+          style={{ borderRight: 0 }}
+        />
+      </Sider>
 
-            return (
-              <div key={item.key}>
-                <button
-                  onClick={() => hasChildren ? toggleExpanded(item.key) : handleMenuClick(item.key)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-                    active
-                      ? 'bg-primary-600 text-white'
-                      : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'
-                  } ${collapsed ? 'justify-center' : ''}`}
-                >
-                  {Icon && <Icon className="w-5 h-5 flex-shrink-0" />}
-                  {!collapsed && (
-                    <>
-                      <span className="flex-1 text-left">{item.label}</span>
-                      {hasChildren && (
-                        isExpanded
-                          ? <ChevronDownIcon className="w-4 h-4" />
-                          : <ChevronRightIcon className="w-4 h-4" />
-                      )}
-                    </>
-                  )}
-                </button>
-                {hasChildren && isExpanded && !collapsed && (
-                  <div className="bg-neutral-950">
-                    {item.children!.map(child => (
-                      <button
-                        key={child.key}
-                        onClick={() => handleMenuClick(child.key)}
-                        className={`w-full flex items-center gap-3 pl-12 pr-4 py-2 text-sm transition-colors ${
-                          isActive(child.key)
-                            ? 'bg-primary-600 text-white'
-                            : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
-                        }`}
-                      >
-                        {child.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
-      </aside>
-
-      {/* Main content */}
-      <div className={`flex-1 transition-all duration-200 ${collapsed ? 'ml-20' : 'ml-52'}`}>
+      <Layout style={{ marginLeft: collapsed ? 80 : 208, transition: 'margin-left 0.2s' }}>
         {/* Header */}
-        <header className="h-16 bg-white border-b border-neutral-200 flex items-center justify-between px-6 sticky top-0 z-10 shadow-sm">
-          <button
+        <Header style={{
+          padding: '0 24px',
+          background: token.colorBgContainer,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+        }}>
+          <Button
+            type="text"
+            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             onClick={() => setCollapsed(!collapsed)}
-            className="p-2 hover:bg-neutral-100 rounded-md transition-colors"
-          >
-            <Bars3Icon className="w-5 h-5 text-neutral-600" />
-          </button>
+          />
 
           {/* User dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center gap-2 hover:bg-neutral-100 rounded-md px-3 py-2 transition-colors"
-            >
-              <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center">
-                <UserIcon className="w-5 h-5 text-neutral-600" />
-              </div>
-              <span className="text-sm text-neutral-700">{user?.full_name || user?.username}</span>
-              <Tag color={roleColors[user?.role || 'viewer']} className="text-xs">
+          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+              padding: '4px 8px',
+              borderRadius: 6,
+            }}>
+              <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#f0f0f0', color: '#595959' }} />
+              <span style={{ color: '#434343' }}>{user?.full_name || user?.username}</span>
+              <Tag color={roleColors[user?.role || 'viewer']}>
                 {roleLabels[user?.role || 'viewer']}
               </Tag>
-            </button>
-
-            {userMenuOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setUserMenuOpen(false)}
-                />
-                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg border border-neutral-200 py-1 z-20">
-                  <button
-                    onClick={() => { navigate('/settings'); setUserMenuOpen(false); }}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100"
-                  >
-                    <UserIcon className="w-4 h-4" />
-                    个人资料
-                  </button>
-                  <div className="border-t border-neutral-200 my-1" />
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-error-600 hover:bg-error-50"
-                  >
-                    <ArrowRightOnRectangleIcon className="w-4 h-4" />
-                    退出登录
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </header>
+            </div>
+          </Dropdown>
+        </Header>
 
         {/* Content */}
-        <main className="p-6">
-          <div className="bg-white rounded-lg p-6 min-h-[280px]">
+        <Content style={{ margin: 24 }}>
+          <div style={{
+            padding: 24,
+            background: token.colorBgContainer,
+            borderRadius: token.borderRadiusLG,
+            minHeight: 280,
+          }}>
             <Outlet />
           </div>
-        </main>
-      </div>
-    </div>
+        </Content>
+      </Layout>
+    </Layout>
   );
 }

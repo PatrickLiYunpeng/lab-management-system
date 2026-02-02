@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Input, Select, InputNumber, Switch, useToast, useForm, Form, FormItem, type FormInstance } from '../ui';
+import { Modal, Input, Select, InputNumber, Switch, Form, Row, Col, App } from 'antd';
 import { clientService } from '../../services/clientService';
 import type { Client, ClientFormData, ClientUpdateData } from '../../types';
 
@@ -39,35 +39,9 @@ interface ClientFormValues {
 }
 
 export function ClientModal({ visible, client, onSuccess, onCancel }: ClientModalProps) {
-  const [form] = useForm<ClientFormValues>({
-    initialValues: {
-      name: '',
-      code: '',
-      contact_name: '',
-      contact_email: '',
-      contact_phone: '',
-      address: '',
-      default_sla_days: 7,
-      priority_level: 3,
-      source_category: 'external',
-      is_active: true,
-    },
-    rules: {
-      name: [{ required: true, message: '请输入客户名称' }],
-      code: [{ required: true, message: '请输入客户代码' }],
-      default_sla_days: [{ required: true, message: '请输入SLA天数' }],
-      priority_level: [{ required: true, message: '请选择优先级' }],
-      source_category: [{ required: true, message: '请选择来源类别' }],
-      contact_email: [
-        {
-          pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-          message: '请输入有效的邮箱地址',
-        },
-      ],
-    },
-  });
+  const [form] = Form.useForm<ClientFormValues>();
   const [loading, setLoading] = useState(false);
-  const toast = useToast();
+  const { message } = App.useApp();
 
   useEffect(() => {
     if (visible) {
@@ -86,12 +60,9 @@ export function ClientModal({ visible, client, onSuccess, onCancel }: ClientModa
   }, [visible, client, form]);
 
   const handleSubmit = async () => {
-    const isValid = await form.validateFields();
-    if (!isValid) return;
-
     try {
+      const values = await form.validateFields();
       setLoading(true);
-      const values = form.getFieldsValue();
 
       if (client) {
         const updateData: ClientUpdateData = {
@@ -106,7 +77,7 @@ export function ClientModal({ visible, client, onSuccess, onCancel }: ClientModa
           is_active: values.is_active,
         };
         await clientService.updateClient(client.id, updateData);
-        toast.success('客户更新成功');
+        message.success('客户更新成功');
       } else {
         const createData: ClientFormData = {
           name: values.name,
@@ -120,12 +91,12 @@ export function ClientModal({ visible, client, onSuccess, onCancel }: ClientModa
           source_category: values.source_category,
         };
         await clientService.createClient(createData);
-        toast.success('客户创建成功');
+        message.success('客户创建成功');
       }
 
       onSuccess();
     } catch {
-      toast.error(client ? '更新失败' : '创建失败');
+      message.error(client ? '更新失败' : '创建失败');
     } finally {
       setLoading(false);
     }
@@ -143,66 +114,93 @@ export function ClientModal({ visible, client, onSuccess, onCancel }: ClientModa
       cancelText="取消"
       destroyOnClose
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
+      <Form form={form} layout="vertical">
         {/* 基本信息 */}
-        <div className="border-b border-neutral-200 pb-2 mb-4">
-          <span className="text-sm text-neutral-500">基本信息</span>
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>基本信息</span>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="name" label="客户名称">
-            <Input placeholder="请输入客户名称" />
-          </FormItem>
-          <FormItem name="code" label="客户代码">
-            <Input placeholder="请输入客户代码" disabled={!!client} />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="name" label="客户名称" rules={[{ required: true, message: '请输入客户名称' }]}>
+              <Input placeholder="请输入客户名称" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="code" label="客户代码" rules={[{ required: true, message: '请输入客户代码' }]}>
+              <Input placeholder="请输入客户代码" disabled={!!client} />
+            </Form.Item>
+          </Col>
+        </Row>
 
         {/* 联系信息 */}
-        <div className="border-b border-neutral-200 pb-2 mb-4 mt-6">
-          <span className="text-sm text-neutral-500">联系信息</span>
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16, marginTop: 24 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>联系信息</span>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="contact_name" label="联系人">
-            <Input placeholder="请输入联系人姓名" />
-          </FormItem>
-          <FormItem name="contact_email" label="联系邮箱">
-            <Input placeholder="请输入联系邮箱" />
-          </FormItem>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="contact_phone" label="联系电话">
-            <Input placeholder="请输入联系电话" />
-          </FormItem>
-          <FormItem name="address" label="地址">
-            <Input placeholder="请输入地址" />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="contact_name" label="联系人">
+              <Input placeholder="请输入联系人姓名" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="contact_email"
+              label="联系邮箱"
+              rules={[
+                {
+                  pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: '请输入有效的邮箱地址',
+                },
+              ]}
+            >
+              <Input placeholder="请输入联系邮箱" />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="contact_phone" label="联系电话">
+              <Input placeholder="请输入联系电话" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="address" label="地址">
+              <Input placeholder="请输入地址" />
+            </Form.Item>
+          </Col>
+        </Row>
 
         {/* SLA配置 */}
-        <div className="border-b border-neutral-200 pb-2 mb-4 mt-6">
-          <span className="text-sm text-neutral-500">SLA配置</span>
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16, marginTop: 24 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>SLA配置</span>
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="default_sla_days" label="默认SLA天数">
-            <InputNumber min={1} max={90} className="w-full" placeholder="默认SLA天数" />
-          </FormItem>
-          <FormItem name="priority_level" label="优先级">
-            <Select placeholder="请选择优先级" options={priorityOptions} />
-          </FormItem>
-          <FormItem name="source_category" label="来源类别">
-            <Select placeholder="请选择来源类别" options={sourceCategoryOptions} />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="default_sla_days" label="默认SLA天数" rules={[{ required: true, message: '请输入SLA天数' }]}>
+              <InputNumber min={1} max={90} style={{ width: '100%' }} placeholder="默认SLA天数" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="priority_level" label="优先级" rules={[{ required: true, message: '请选择优先级' }]}>
+              <Select placeholder="请选择优先级" options={priorityOptions} />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="source_category" label="来源类别" rules={[{ required: true, message: '请选择来源类别' }]}>
+              <Select placeholder="请选择来源类别" options={sourceCategoryOptions} />
+            </Form.Item>
+          </Col>
+        </Row>
 
         {/* 状态（仅编辑时显示） */}
         {client && (
           <>
-            <div className="border-b border-neutral-200 pb-2 mb-4 mt-6">
-              <span className="text-sm text-neutral-500">状态</span>
+            <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16, marginTop: 24 }}>
+              <span style={{ fontSize: 14, color: '#999' }}>状态</span>
             </div>
-            <FormItem name="is_active" label="状态">
+            <Form.Item name="is_active" label="状态" valuePropName="checked">
               <Switch checkedChildren="启用" unCheckedChildren="停用" />
-            </FormItem>
+            </Form.Item>
           </>
         )}
       </Form>

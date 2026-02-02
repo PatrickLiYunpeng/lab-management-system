@@ -3,20 +3,9 @@ import { workOrderService } from '../../services/workOrderService';
 import { equipmentService } from '../../services/equipmentService';
 import { methodService } from '../../services/methodService';
 import type { WorkOrderTask, TaskFormData, TaskUpdateData, Equipment, Method, MethodType, TaskStatus } from '../../types';
-import {
-  Button,
-  Input,
-  TextArea,
-  Select,
-  InputNumber,
-  Modal,
-  Alert,
-  useToast,
-  useForm,
-  Form,
-  FormItem,
-  type FormInstance,
-} from '../ui';
+import { Modal, Form, Input, Select, InputNumber, Alert, Row, Col, Button, App } from 'antd';
+
+const { TextArea } = Input;
 
 interface TaskModalProps {
   visible: boolean;
@@ -58,8 +47,8 @@ export function TaskModal({
   onSuccess,
   onCancel,
 }: TaskModalProps) {
-  const toast = useToast();
-  const [form] = useForm();
+  const { message } = App.useApp();
+  const [form] = Form.useForm<TaskFormValues>();
   const [loading, setLoading] = useState(false);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [methods, setMethods] = useState<Method[]>([]);
@@ -110,10 +99,9 @@ export function TaskModal({
     }
   }, [visible, task, laboratoryId, workOrderType, form]);
 
-  const handleMethodChange = (value: string | number | (string | number)[]) => {
-    const methodId = Array.isArray(value) ? value[0] : value;
-    if (methodId) {
-      const selectedMethod = methods.find(m => m.id === Number(methodId));
+  const handleMethodChange = (value: number) => {
+    if (value) {
+      const selectedMethod = methods.find(m => m.id === value);
       if (selectedMethod) {
         // Auto-populate from method
         if (selectedMethod.standard_cycle_hours) {
@@ -132,16 +120,15 @@ export function TaskModal({
     }
   };
 
-  const handleEquipmentChange = async (value: string | number | (string | number)[]) => {
-    const equipmentId = Array.isArray(value) ? value[0] : value;
-    if (!equipmentId) {
+  const handleEquipmentChange = async (value: number) => {
+    if (!value) {
       setCapacityInfo(null);
       return;
     }
     
     setLoadingCapacity(true);
     try {
-      const capacity = await equipmentService.getEquipmentCapacity(Number(equipmentId));
+      const capacity = await equipmentService.getEquipmentCapacity(value);
       if (capacity.has_capacity_limit) {
         setCapacityInfo({
           total: capacity.total_capacity || 0,
@@ -161,12 +148,7 @@ export function TaskModal({
 
   const handleSubmit = async () => {
     try {
-      const errors = await form.validateFields();
-      if (errors && Object.keys(errors).length > 0) {
-        return;
-      }
-      
-      const values = form.getFieldsValue() as TaskFormValues;
+      const values = await form.validateFields();
       setLoading(true);
 
       if (task) {
@@ -179,7 +161,7 @@ export function TaskModal({
           notes: values.notes || undefined,
         };
         await workOrderService.updateTask(workOrderId, task.id, updateData);
-        toast.success('任务更新成功');
+        message.success('任务更新成功');
       } else {
         const createData: TaskFormData = {
           title: values.title || '',
@@ -191,12 +173,15 @@ export function TaskModal({
           standard_cycle_hours: values.standard_cycle_hours || undefined,
         };
         await workOrderService.createTask(workOrderId, createData);
-        toast.success('任务创建成功');
+        message.success('任务创建成功');
       }
 
       onSuccess();
-    } catch {
-      toast.error(task ? '更新失败' : '创建失败');
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'errorFields' in error) {
+        return;
+      }
+      message.error(task ? '更新失败' : '创建失败');
     } finally {
       setLoading(false);
     }
@@ -209,18 +194,18 @@ export function TaskModal({
       title={task ? '编辑任务' : '新增任务'}
       open={visible}
       onCancel={onCancel}
-      size="large"
+      width={700}
       footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="default" onClick={onCancel}>取消</Button>
-          <Button variant="primary" onClick={handleSubmit} loading={loading}>确定</Button>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button onClick={onCancel}>取消</Button>
+          <Button type="primary" onClick={handleSubmit} loading={loading}>确定</Button>
         </div>
       }
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
+      <Form form={form} layout="vertical">
         {!task && (
           <>
-            <FormItem 
+            <Form.Item 
               name="method_id" 
               label="分析/测试方法"
             >
@@ -228,55 +213,62 @@ export function TaskModal({
                 placeholder="选择标准方法（可选）"
                 allowClear
                 onChange={handleMethodChange}
+                optionFilterProp="label"
                 options={methods.map((m) => ({
                   label: `${m.name} (${m.code}) - ${m.standard_cycle_hours || '?'}h`,
                   value: m.id,
                 }))}
               />
-            </FormItem>
-            <p className="text-xs text-neutral-500 -mt-2 mb-3">选择标准方法可自动填充周期时间和设备</p>
-            <hr className="border-neutral-200 my-4" />
+            </Form.Item>
+            <p style={{ fontSize: 12, color: '#999', marginTop: -8, marginBottom: 12 }}>选择标准方法可自动填充周期时间和设备</p>
+            <hr style={{ border: 'none', borderTop: '1px solid #e5e5e5', margin: '16px 0' }} />
           </>
         )}
 
-        <FormItem
+        <Form.Item
           name="title"
           label="任务名称"
           rules={[{ required: true, message: '请输入任务名称' }]}
         >
           <Input placeholder="请输入任务名称" />
-        </FormItem>
+        </Form.Item>
 
-        <FormItem name="description" label="任务描述">
+        <Form.Item name="description" label="任务描述">
           <TextArea rows={3} placeholder="请输入任务描述" />
-        </FormItem>
+        </Form.Item>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="sequence" label="执行顺序">
-            <InputNumber min={1} placeholder="执行顺序" />
-          </FormItem>
-          <FormItem name="standard_cycle_hours" label="标准周期(小时)">
-            <InputNumber
-              min={0.1}
-              step={0.5}
-              placeholder="标准周期"
-              disabled={!!task}
-            />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="sequence" label="执行顺序">
+              <InputNumber min={1} placeholder="执行顺序" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="standard_cycle_hours" label="标准周期(小时)">
+              <InputNumber
+                min={0.1}
+                step={0.5}
+                placeholder="标准周期"
+                disabled={!!task}
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <FormItem name="required_equipment_id" label="所需设备">
+        <Form.Item name="required_equipment_id" label="所需设备">
           <Select
             placeholder="请选择所需设备"
             allowClear
             disabled={!!task}
             onChange={handleEquipmentChange}
+            optionFilterProp="label"
             options={equipment.map((eq) => ({
               label: `${eq.name} (${eq.code})`,
               value: eq.id,
             }))}
           />
-        </FormItem>
+        </Form.Item>
 
         {!task && capacityInfo?.hasLimit && (
           <Alert
@@ -288,19 +280,19 @@ export function TaskModal({
                 <span>
                   可用容量: <strong>{capacityInfo.available}/{capacityInfo.total}</strong> 槽位
                   {capacityInfo.available === 0 && (
-                    <span className="text-error-500 ml-2">
+                    <span style={{ color: '#ef4444', marginLeft: 8 }}>
                       (当前无可用容量)
                     </span>
                   )}
                 </span>
               )
             }
-            className="mb-4"
+            style={{ marginBottom: 16 }}
           />
         )}
 
         {!task && (
-          <FormItem
+          <Form.Item
             name="required_capacity"
             label="所需容量(样品槽位)"
           >
@@ -308,20 +300,23 @@ export function TaskModal({
               min={1}
               placeholder="输入所需槽位数"
               disabled={!formValues.required_equipment_id}
+              style={{ width: '100%' }}
             />
-          </FormItem>
+          </Form.Item>
         )}
 
         {task && (
           <>
-            <div className="grid grid-cols-2 gap-4">
-              <FormItem name="status" label="状态">
-                <Select placeholder="请选择状态" options={statusOptions} />
-              </FormItem>
-            </div>
-            <FormItem name="notes" label="备注">
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="status" label="状态">
+                  <Select placeholder="请选择状态" options={statusOptions} />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Form.Item name="notes" label="备注">
               <TextArea rows={2} placeholder="请输入备注" />
-            </FormItem>
+            </Form.Item>
           </>
         )}
       </Form>

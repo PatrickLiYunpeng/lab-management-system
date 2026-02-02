@@ -1,22 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
-  CheckCircleIcon,
-  XCircleIcon,
-  UserIcon,
-} from '@heroicons/react/24/outline';
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
 import { workOrderService } from '../../services/workOrderService';
 import type { WorkOrderTask, EligibleTechnician, EligibleTechniciansResponse, RequiredSkillInfo } from '../../types';
-import {
-  Button,
-  Table,
-  Tag,
-  Progress,
-  Tooltip,
-  Modal,
-  Spin,
-  useToast,
-  type TableColumn,
-} from '../ui';
+import { Button, Table, Tag, Progress, Tooltip, Modal, Spin, App } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 
 interface TechnicianMatcherProps {
   visible: boolean;
@@ -47,7 +38,7 @@ export function TechnicianMatcher({
   onSuccess,
   onCancel,
 }: TechnicianMatcherProps) {
-  const toast = useToast();
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [data, setData] = useState<EligibleTechniciansResponse | null>(null);
@@ -59,11 +50,11 @@ export function TechnicianMatcher({
       const response = await workOrderService.getEligibleTechnicians(workOrderId, task.id);
       setData(response);
     } catch {
-      toast.error('获取合格技术员列表失败');
+      message.error('获取合格技术员列表失败');
     } finally {
       setLoading(false);
     }
-  }, [workOrderId, task, toast]);
+  }, [workOrderId, task, message]);
 
   useEffect(() => {
     if (visible && task) {
@@ -79,26 +70,26 @@ export function TechnicianMatcher({
         technician_id: technicianId,
         equipment_id: task.required_equipment_id,
       });
-      toast.success('任务分配成功');
+      message.success('任务分配成功');
       onSuccess();
     } catch {
-      toast.error('任务分配失败');
+      message.error('任务分配失败');
     } finally {
       setAssigning(false);
     }
   };
 
-  const columns: TableColumn<EligibleTechnician>[] = [
+  const columns: ColumnsType<EligibleTechnician> = [
     {
       title: '技术员',
       dataIndex: 'name',
       key: 'name',
-      render: (name: unknown, record) => (
-        <div className="flex items-center gap-2">
-          <UserIcon className="w-4 h-4 text-neutral-400" />
+      render: (name: string, record) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <UserOutlined style={{ color: '#999' }} />
           <span>
-            {String(name)}
-            <span className="text-neutral-400 ml-2">({record.employee_id})</span>
+            {name}
+            <span style={{ color: '#999', marginLeft: 8 }}>({record.employee_id})</span>
           </span>
         </div>
       ),
@@ -107,45 +98,39 @@ export function TechnicianMatcher({
       title: '职位',
       dataIndex: 'job_title',
       key: 'job_title',
-      render: (title: unknown) => title ? String(title) : '-',
+      render: (title: string) => title || '-',
     },
     {
       title: '匹配度',
       dataIndex: 'match_score',
       key: 'match_score',
       sorter: (a, b) => a.match_score - b.match_score,
-      render: (score: unknown) => {
-        const scoreNum = Number(score);
-        return (
-          <Progress
-            percent={Math.round(scoreNum)}
-            size="small"
-            status={scoreNum >= 80 ? 'success' : scoreNum >= 50 ? 'active' : 'exception'}
-            className="w-24"
-          />
-        );
-      },
+      render: (score: number) => (
+        <Progress
+          percent={Math.round(score)}
+          size="small"
+          status={score >= 80 ? 'success' : score >= 50 ? 'active' : 'exception'}
+          style={{ width: 96 }}
+        />
+      ),
     },
     {
       title: '当前任务数',
       dataIndex: 'current_workload',
       key: 'current_workload',
       sorter: (a, b) => a.current_workload - b.current_workload,
-      render: (workload: unknown) => {
-        const workloadNum = Number(workload);
-        return (
-          <Tag color={workloadNum >= 5 ? 'error' : workloadNum >= 3 ? 'warning' : 'success'}>
-            {workloadNum}
-          </Tag>
-        );
-      },
+      render: (workload: number) => (
+        <Tag color={workload >= 5 ? 'error' : workload >= 3 ? 'warning' : 'success'}>
+          {workload}
+        </Tag>
+      ),
     },
     {
       title: '技能详情',
       key: 'skill_details',
       width: 280,
-      render: (_: unknown, record) => (
-        <div className="flex flex-wrap gap-1">
+      render: (_, record) => (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
           {record.skill_details.map((skill) => (
             <Tooltip
               key={skill.skill_id}
@@ -154,11 +139,11 @@ export function TechnicianMatcher({
               <Tag
                 color={skill.meets_requirement ? proficiencyColors[skill.proficiency_level] : 'default'}
               >
-                <span className="flex items-center gap-1">
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   {skill.meets_requirement ? (
-                    <CheckCircleIcon className="w-3 h-3" />
+                    <CheckCircleOutlined style={{ fontSize: 12 }} />
                   ) : (
-                    <XCircleIcon className="w-3 h-3" />
+                    <CloseCircleOutlined style={{ fontSize: 12 }} />
                   )}
                   {skill.skill_name}
                 </span>
@@ -173,9 +158,9 @@ export function TechnicianMatcher({
       key: 'action',
       fixed: 'right',
       width: 100,
-      render: (_: unknown, record) => (
+      render: (_, record) => (
         <Button
-          variant="primary"
+          type="primary"
           size="small"
           onClick={() => handleAssign(record.personnel_id)}
           loading={assigning}
@@ -192,7 +177,7 @@ export function TechnicianMatcher({
       return <Tag>无技能要求</Tag>;
     }
     return (
-      <div className="flex flex-wrap gap-1">
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {skills.map((skill) => (
           <Tooltip
             key={skill.skill_id}
@@ -214,34 +199,34 @@ export function TechnicianMatcher({
       open={visible}
       onCancel={onCancel}
       footer={null}
-      size="large"
+      width={900}
     >
       {loading ? (
-        <div className="flex justify-center py-12">
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
           <Spin size="large" />
         </div>
       ) : (
         <>
           {data && (
-            <div className="mb-4 space-y-2">
-              <div>
-                <strong className="text-sm">所需设备: </strong>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 8 }}>
+                <strong style={{ fontSize: 14 }}>所需设备: </strong>
                 {data.required_equipment_name ? (
                   <Tag color="processing">{data.required_equipment_name}</Tag>
                 ) : (
-                  <span className="text-neutral-400">无</span>
+                  <span style={{ color: '#999' }}>无</span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <strong className="text-sm">技能要求: </strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <strong style={{ fontSize: 14 }}>技能要求: </strong>
                 {renderRequiredSkills(data.required_skills)}
               </div>
             </div>
           )}
 
           {data?.eligible_technicians.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-neutral-400">
-              <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', color: '#999' }}>
+              <svg style={{ width: 48, height: 48, marginBottom: 8 }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
               <span>

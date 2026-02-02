@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
-import { Modal, Select, DatePicker, useToast, useForm, Form, FormItem, type FormInstance } from '../ui';
+import { Modal, Form, Select, DatePicker, Row, Col, App } from 'antd';
 import { shiftService } from '../../services/shiftService';
 import type { Personnel, PersonnelShift, PersonnelShiftFormData, PersonnelShiftUpdateData } from '../../types';
 
@@ -27,19 +27,9 @@ export function PersonnelShiftModal({
   onSuccess,
   onCancel,
 }: PersonnelShiftModalProps) {
-  const [form] = useForm<PersonnelShiftFormValues>({
-    initialValues: {
-      personnel_id: undefined as unknown as number,
-      effective_date: undefined,
-      end_date: undefined,
-    },
-    rules: {
-      personnel_id: [{ required: true, message: '请选择人员' }],
-      effective_date: [{ required: true, message: '请选择生效日期' }],
-    },
-  });
+  const [form] = Form.useForm<PersonnelShiftFormValues>();
   const [loading, setLoading] = useState(false);
-  const toast = useToast();
+  const { message } = App.useApp();
   const isEdit = !!personnelShift;
 
   useEffect(() => {
@@ -76,7 +66,7 @@ export function PersonnelShiftModal({
           personnelShift.shift_id, 
           updateData
         );
-        toast.success('班次分配更新成功');
+        message.success('班次分配更新成功');
       } else {
         const effectiveDate = values.effective_date as dayjs.Dayjs;
         const createData: PersonnelShiftFormData = {
@@ -85,7 +75,7 @@ export function PersonnelShiftModal({
           end_date: values.end_date ? (values.end_date as dayjs.Dayjs).format('YYYY-MM-DD') : undefined,
         };
         await shiftService.assignShiftToPersonnel(values.personnel_id, createData);
-        toast.success('班次分配成功');
+        message.success('班次分配成功');
       }
 
       onSuccess();
@@ -93,7 +83,7 @@ export function PersonnelShiftModal({
       if (error && typeof error === 'object' && 'errorFields' in error) {
         return;
       }
-      toast.error(isEdit ? '更新失败' : '分配失败');
+      message.error(isEdit ? '更新失败' : '分配失败');
     } finally {
       setLoading(false);
     }
@@ -111,27 +101,32 @@ export function PersonnelShiftModal({
       cancelText="取消"
       destroyOnClose
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
-        <FormItem name="personnel_id" label="人员">
+      <Form form={form} layout="vertical">
+        <Form.Item name="personnel_id" label="人员" rules={[{ required: true, message: '请选择人员' }]}>
           <Select
             placeholder="请选择人员"
             disabled={isEdit}
             showSearch
+            optionFilterProp="label"
             options={availablePersonnel.map((p) => ({
               label: `${p.user?.full_name || p.employee_id} (${p.employee_id})`,
               value: p.id,
             }))}
           />
-        </FormItem>
+        </Form.Item>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="effective_date" label="生效日期">
-            <DatePicker className="w-full" placeholder="选择生效日期" />
-          </FormItem>
-          <FormItem name="end_date" label="结束日期" extra="留空表示持续有效">
-            <DatePicker className="w-full" placeholder="选择结束日期" />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="effective_date" label="生效日期" rules={[{ required: true, message: '请选择生效日期' }]}>
+              <DatePicker style={{ width: '100%' }} placeholder="选择生效日期" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="end_date" label="结束日期" extra="留空表示持续有效">
+              <DatePicker style={{ width: '100%' }} placeholder="选择结束日期" />
+            </Form.Item>
+          </Col>
+        </Row>
       </Form>
     </Modal>
   );

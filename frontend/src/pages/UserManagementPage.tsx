@@ -1,14 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  PlusIcon,
-  PencilIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-  KeyIcon,
-  CheckCircleIcon,
-  NoSymbolIcon,
-} from '@heroicons/react/24/outline';
-import { Table, Button, Input, Select, Tag, Popconfirm, Tooltip, useToast, type TableColumn, type TablePagination } from '../components/ui';
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  SearchOutlined,
+  KeyOutlined,
+  CheckCircleOutlined,
+  StopOutlined,
+} from '@ant-design/icons';
+import { Table, Button, Input, Select, Tag, Popconfirm, Tooltip, App, Space } from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { userService } from '../services/userService';
 import { UserModal } from '../components/users/UserModal';
 import { PasswordResetModal } from '../components/users/PasswordResetModal';
@@ -46,7 +47,7 @@ export default function UserManagementPage() {
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [pagination, setPagination] = useState<TablePagination>({
+  const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
     total: 0,
@@ -56,7 +57,7 @@ export default function UserManagementPage() {
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
 
-  const toast = useToast();
+  const { message } = App.useApp();
   const errorShownRef = useRef(false);
   const { user: currentUser } = useAuthStore();
 
@@ -83,13 +84,13 @@ export default function UserManagementPage() {
       } catch {
         if (!errorShownRef.current) {
           errorShownRef.current = true;
-          toast.error('获取用户列表失败');
+          message.error('获取用户列表失败');
         }
       } finally {
         setLoading(false);
       }
     },
-    [toast]
+    [message]
   );
 
   useEffect(() => {
@@ -106,20 +107,20 @@ export default function UserManagementPage() {
     return () => clearTimeout(timer);
   }, [searchValue, searchText, pagination.pageSize, roleFilter, statusFilter, fetchUsers]);
 
-  const handlePaginationChange = (page: number, pageSize: number) => {
-    fetchUsers(page, pageSize, searchText, roleFilter, statusFilter);
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
+    fetchUsers(paginationConfig.current || 1, paginationConfig.pageSize || 10, searchText, roleFilter, statusFilter);
   };
 
-  const handleRoleFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? (value[0] as string) : (value as string);
-    setRoleFilter(v || '');
-    fetchUsers(1, pagination.pageSize, searchText, v || '', statusFilter);
+  const handleRoleFilterChange = (value: string | undefined) => {
+    const v = value || '';
+    setRoleFilter(v);
+    fetchUsers(1, pagination.pageSize, searchText, v, statusFilter);
   };
 
-  const handleStatusFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? (value[0] as string) : (value as string);
-    setStatusFilter(v || '');
-    fetchUsers(1, pagination.pageSize, searchText, roleFilter, v || '');
+  const handleStatusFilterChange = (value: string | undefined) => {
+    const v = value || '';
+    setStatusFilter(v);
+    fetchUsers(1, pagination.pageSize, searchText, roleFilter, v);
   };
 
   const handleAdd = () => {
@@ -141,24 +142,24 @@ export default function UserManagementPage() {
     try {
       if (record.is_active) {
         await userService.deactivateUser(record.id);
-        toast.success('用户已禁用');
+        message.success('用户已禁用');
       } else {
         await userService.activateUser(record.id);
-        toast.success('用户已启用');
+        message.success('用户已启用');
       }
       fetchUsers(pagination.current, pagination.pageSize, searchText, roleFilter, statusFilter);
     } catch {
-      toast.error('操作失败');
+      message.error('操作失败');
     }
   };
 
   const handleDelete = async (id: number) => {
     try {
       await userService.deleteUser(id);
-      toast.success('删除成功');
+      message.success('删除成功');
       fetchUsers(pagination.current, pagination.pageSize, searchText, roleFilter, statusFilter);
     } catch {
-      toast.error('删除失败');
+      message.error('删除失败');
     }
   };
 
@@ -183,7 +184,7 @@ export default function UserManagementPage() {
     setSelectedUser(null);
   };
 
-  const columns: TableColumn<User>[] = [
+  const columns: ColumnsType<User> = [
     {
       title: '用户名',
       dataIndex: 'username',
@@ -239,31 +240,31 @@ export default function UserManagementPage() {
       render: (_, record) => {
         const isSelf = currentUser?.id === record.id;
         return (
-          <div className="flex items-center gap-1">
+          <Space size={4}>
             <Tooltip title="编辑">
               <Button
-                variant="link"
+                type="link"
                 size="small"
-                icon={<PencilIcon className="w-4 h-4" />}
+                icon={<EditOutlined />}
                 onClick={() => handleEdit(record)}
               />
             </Tooltip>
             <Tooltip title="重置密码">
               <Button
-                variant="link"
+                type="link"
                 size="small"
-                icon={<KeyIcon className="w-4 h-4" />}
+                icon={<KeyOutlined />}
                 onClick={() => handleResetPassword(record)}
               />
             </Tooltip>
             <Tooltip title={record.is_active ? '禁用' : '启用'}>
               <Button
-                variant="link"
+                type="link"
                 size="small"
-                icon={record.is_active ? <NoSymbolIcon className="w-4 h-4" /> : <CheckCircleIcon className="w-4 h-4" />}
+                icon={record.is_active ? <StopOutlined /> : <CheckCircleOutlined />}
                 onClick={() => handleToggleStatus(record)}
                 disabled={isSelf}
-                className={record.is_active ? 'text-warning-500' : 'text-success-500'}
+                style={{ color: record.is_active ? '#faad14' : '#52c41a' }}
               />
             </Tooltip>
             <Popconfirm
@@ -272,20 +273,20 @@ export default function UserManagementPage() {
               onConfirm={() => handleDelete(record.id)}
               okText="确定"
               cancelText="取消"
-              okDanger
+              okButtonProps={{ danger: true }}
               disabled={isSelf}
             >
               <Tooltip title={isSelf ? '不能删除自己' : '删除'}>
                 <Button
-                  variant="link"
+                  type="link"
                   size="small"
                   danger
-                  icon={<TrashIcon className="w-4 h-4" />}
+                  icon={<DeleteOutlined />}
                   disabled={isSelf}
                 />
               </Tooltip>
             </Popconfirm>
-          </div>
+          </Space>
         );
       },
     },
@@ -293,21 +294,21 @@ export default function UserManagementPage() {
 
   return (
     <div>
-      <div className="mb-4 flex justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4 flex-wrap">
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+        <Space wrap>
           <Input
             placeholder="搜索用户名、姓名或邮箱"
-            prefix={<MagnifyingGlassIcon className="w-4 h-4" />}
+            prefix={<SearchOutlined />}
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            className="w-[250px]"
+            style={{ width: 250 }}
             allowClear
           />
           <Select
             value={roleFilter || undefined}
             onChange={handleRoleFilterChange}
             options={roleOptions}
-            className="w-[120px]"
+            style={{ width: 120 }}
             placeholder="全部角色"
             allowClear
           />
@@ -315,12 +316,12 @@ export default function UserManagementPage() {
             value={statusFilter || undefined}
             onChange={handleStatusFilterChange}
             options={statusOptions}
-            className="w-[120px]"
+            style={{ width: 120 }}
             placeholder="全部状态"
             allowClear
           />
-        </div>
-        <Button variant="primary" icon={<PlusIcon className="w-4 h-4" />} onClick={handleAdd}>
+        </Space>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新增用户
         </Button>
       </div>
@@ -335,8 +336,8 @@ export default function UserManagementPage() {
           showSizeChanger: true,
           showQuickJumper: true,
           showTotal: (total) => `共 ${total} 条`,
-          onChange: handlePaginationChange,
         }}
+        onChange={handleTableChange}
       />
 
       <UserModal

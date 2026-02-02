@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  PlusIcon,
-  PencilIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-  ArrowPathIcon,
-} from '@heroicons/react/24/outline';
-import { Table, Button, Input, Select, Tag, Popconfirm, Tooltip, useToast, type TableColumn } from '../components/ui';
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  SearchOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons';
+import { Table, Button, Input, Select, Tag, Popconfirm, Tooltip, App, Card, Space } from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { methodService } from '../services/methodService';
 import { laboratoryService } from '../services/laboratoryService';
 import { isAbortError } from '../services/api';
@@ -49,7 +50,7 @@ export default function MethodsPage() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingMethod, setEditingMethod] = useState<Method | null>(null);
   
-  const toast = useToast();
+  const { message } = App.useApp();
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -81,12 +82,12 @@ export default function MethodsPage() {
       setTotal(response.total);
     } catch (err) {
       if (!isAbortError(err)) {
-        toast.error('获取方法列表失败');
+        message.error('获取方法列表失败');
       }
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, filters, toast]);
+  }, [page, pageSize, filters, message]);
 
   useEffect(() => {
     if (abortControllerRef.current) {
@@ -111,9 +112,9 @@ export default function MethodsPage() {
     return () => clearTimeout(timer);
   }, [searchValue]);
 
-  const handlePaginationChange = (newPage: number, newPageSize: number) => {
-    setPage(newPage);
-    setPageSize(newPageSize);
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
+    setPage(paginationConfig.current || 1);
+    setPageSize(paginationConfig.pageSize || 20);
   };
 
   const handleAdd = () => {
@@ -129,10 +130,10 @@ export default function MethodsPage() {
   const handleDelete = async (id: number) => {
     try {
       await methodService.deleteMethod(id);
-      toast.success('方法已删除');
+      message.success('方法已删除');
       fetchMethods();
     } catch {
-      toast.error('删除失败');
+      message.error('删除失败');
     }
   };
 
@@ -147,29 +148,27 @@ export default function MethodsPage() {
     setEditingMethod(null);
   };
 
-  const handleFilterChange = (key: keyof MethodFilters, value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters(prev => ({ ...prev, [key]: v }));
+  const handleFilterChange = (key: keyof MethodFilters, value: string | number | undefined) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
     setPage(1);
   };
 
-  const handleStatusFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    if (v === undefined || v === '') {
+  const handleStatusFilterChange = (value: string | undefined) => {
+    if (value === undefined || value === '') {
       setFilters(prev => ({ ...prev, is_active: undefined }));
     } else {
-      setFilters(prev => ({ ...prev, is_active: v === 'true' }));
+      setFilters(prev => ({ ...prev, is_active: value === 'true' }));
     }
     setPage(1);
   };
 
-  const columns: TableColumn<Method>[] = [
+  const columns: ColumnsType<Method> = [
     {
       title: '方法代码',
       dataIndex: 'code',
       key: 'code',
       width: 120,
-      render: (value) => <span className="font-semibold">{value as string}</span>,
+      render: (value) => <span style={{ fontWeight: 600 }}>{value as string}</span>,
     },
     {
       title: '方法名称',
@@ -234,11 +233,11 @@ export default function MethodsPage() {
       key: 'action',
       width: 150,
       render: (_, record) => (
-        <div className="flex items-center gap-2">
+        <Space>
           <Button
-            variant="link"
+            type="link"
             size="small"
-            icon={<PencilIcon className="w-4 h-4" />}
+            icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
           >
             编辑
@@ -249,43 +248,43 @@ export default function MethodsPage() {
             onConfirm={() => handleDelete(record.id)}
             okText="确定"
             cancelText="取消"
-            okDanger
+            okButtonProps={{ danger: true }}
           >
-            <Button variant="link" size="small" danger icon={<TrashIcon className="w-4 h-4" />}>
+            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
               删除
             </Button>
           </Popconfirm>
-        </div>
+        </Space>
       ),
     },
   ];
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-lg font-semibold text-neutral-900">分析/测试方法管理</h2>
-        <div className="flex gap-2">
-          <Button icon={<ArrowPathIcon className="w-4 h-4" />} onClick={() => fetchMethods()}>
+    <Card>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>分析/测试方法管理</h2>
+        <Space>
+          <Button icon={<ReloadOutlined />} onClick={() => fetchMethods()}>
             刷新
           </Button>
-          <Button variant="primary" icon={<PlusIcon className="w-4 h-4" />} onClick={handleAdd}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
             新增方法
           </Button>
-        </div>
+        </Space>
       </div>
 
-      <div className="flex items-center gap-4 mb-4 flex-wrap">
+      <Space wrap style={{ marginBottom: 16 }}>
         <Input
           placeholder="搜索方法名称/代码"
-          prefix={<MagnifyingGlassIcon className="w-4 h-4" />}
+          prefix={<SearchOutlined />}
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
-          className="w-[200px]"
+          style={{ width: 200 }}
           allowClear
         />
         <Select
           placeholder="方法类型"
-          className="w-[140px]"
+          style={{ width: 140 }}
           allowClear
           value={filters.method_type}
           onChange={(v) => handleFilterChange('method_type', v)}
@@ -296,7 +295,7 @@ export default function MethodsPage() {
         />
         <Select
           placeholder="方法类别"
-          className="w-[120px]"
+          style={{ width: 120 }}
           allowClear
           value={filters.category}
           onChange={(v) => handleFilterChange('category', v)}
@@ -304,7 +303,7 @@ export default function MethodsPage() {
         />
         <Select
           placeholder="所属实验室"
-          className="w-[160px]"
+          style={{ width: 160 }}
           allowClear
           value={filters.laboratory_id}
           onChange={(v) => handleFilterChange('laboratory_id', v)}
@@ -312,7 +311,7 @@ export default function MethodsPage() {
         />
         <Select
           placeholder="状态"
-          className="w-[100px]"
+          style={{ width: 100 }}
           allowClear
           value={filters.is_active === undefined ? undefined : (filters.is_active ? 'true' : 'false')}
           onChange={handleStatusFilterChange}
@@ -321,7 +320,7 @@ export default function MethodsPage() {
             { label: '停用', value: 'false' },
           ]}
         />
-      </div>
+      </Space>
 
       <Table
         columns={columns}
@@ -336,8 +335,8 @@ export default function MethodsPage() {
           showSizeChanger: true,
           showQuickJumper: true,
           showTotal: (t) => `共 ${t} 条`,
-          onChange: handlePaginationChange,
         }}
+        onChange={handleTableChange}
       />
 
       <MethodModal
@@ -346,6 +345,6 @@ export default function MethodsPage() {
         onSuccess={handleModalSuccess}
         onCancel={handleModalCancel}
       />
-    </div>
+    </Card>
   );
 }

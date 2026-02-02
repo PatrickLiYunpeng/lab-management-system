@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Modal, Input, TextArea, Select, Switch, InputNumber, useToast, useForm, Form, FormItem, type FormInstance } from '../ui';
+import { Modal, Input, Select, Switch, InputNumber, Form, Row, Col, App } from 'antd';
 import { laboratoryService } from '../../services/laboratoryService';
 import type { Laboratory, LaboratoryFormData, Site } from '../../types';
+
+const { TextArea } = Input;
 
 interface LaboratoryModalProps {
   visible: boolean;
@@ -19,33 +21,9 @@ export function LaboratoryModal({
   onSuccess,
   onCancel,
 }: LaboratoryModalProps) {
-  const [form] = useForm<LaboratoryFormData>({
-    initialValues: {
-      name: '',
-      code: '',
-      lab_type: undefined as unknown as LaboratoryFormData['lab_type'],
-      site_id: undefined as unknown as number,
-      description: '',
-      max_capacity: undefined,
-      manager_name: '',
-      manager_email: '',
-      is_active: true,
-    },
-    rules: {
-      name: [{ required: true, message: '请输入实验室名称' }],
-      code: [{ required: true, message: '请输入实验室代码' }],
-      lab_type: [{ required: true, message: '请选择实验室类型' }],
-      site_id: [{ required: true, message: '请选择所属站点' }],
-      manager_email: [
-        {
-          pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-          message: '请输入有效的邮箱地址',
-        },
-      ],
-    },
-  });
+  const [form] = Form.useForm<LaboratoryFormData>();
   const [loading, setLoading] = useState(false);
-  const toast = useToast();
+  const { message } = App.useApp();
 
   useEffect(() => {
     if (visible) {
@@ -59,24 +37,21 @@ export function LaboratoryModal({
   }, [visible, laboratory, form]);
 
   const handleSubmit = async () => {
-    const isValid = await form.validateFields();
-    if (!isValid) return;
-
     try {
+      const values = await form.validateFields();
       setLoading(true);
-      const values = form.getFieldsValue() as LaboratoryFormData;
 
       if (laboratory) {
         await laboratoryService.updateLaboratory(laboratory.id, values);
-        toast.success('更新成功');
+        message.success('更新成功');
       } else {
         await laboratoryService.createLaboratory(values);
-        toast.success('创建成功');
+        message.success('创建成功');
       }
 
       onSuccess();
     } catch {
-      toast.error(laboratory ? '更新失败' : '创建失败');
+      message.error(laboratory ? '更新失败' : '创建失败');
     } finally {
       setLoading(false);
     }
@@ -94,57 +69,81 @@ export function LaboratoryModal({
       cancelText="取消"
       destroyOnClose
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="name" label="实验室名称">
-            <Input placeholder="请输入实验室名称" />
-          </FormItem>
-          <FormItem name="code" label="实验室代码">
-            <Input placeholder="请输入实验室代码" />
-          </FormItem>
-        </div>
+      <Form form={form} layout="vertical">
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="name" label="实验室名称" rules={[{ required: true, message: '请输入实验室名称' }]}>
+              <Input placeholder="请输入实验室名称" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="code" label="实验室代码" rules={[{ required: true, message: '请输入实验室代码' }]}>
+              <Input placeholder="请输入实验室代码" />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="lab_type" label="实验室类型">
-            <Select
-              placeholder="请选择实验室类型"
-              options={[
-                { label: 'FA (失效分析)', value: 'fa' },
-                { label: '可靠性测试', value: 'reliability' },
-              ]}
-            />
-          </FormItem>
-          <FormItem name="site_id" label="所属站点">
-            <Select
-              placeholder="请选择所属站点"
-              options={sites.map((site) => ({
-                label: site.name,
-                value: site.id,
-              }))}
-              showSearch
-            />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="lab_type" label="实验室类型" rules={[{ required: true, message: '请选择实验室类型' }]}>
+              <Select
+                placeholder="请选择实验室类型"
+                options={[
+                  { label: 'FA (失效分析)', value: 'fa' },
+                  { label: '可靠性测试', value: 'reliability' },
+                ]}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="site_id" label="所属站点" rules={[{ required: true, message: '请选择所属站点' }]}>
+              <Select
+                placeholder="请选择所属站点"
+                options={sites.map((site) => ({
+                  label: site.name,
+                  value: site.id,
+                }))}
+                showSearch
+                optionFilterProp="label"
+              />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <FormItem name="description" label="描述">
+        <Form.Item name="description" label="描述">
           <TextArea rows={3} placeholder="请输入实验室描述" />
-        </FormItem>
+        </Form.Item>
 
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="max_capacity" label="最大容量">
-            <InputNumber min={1} placeholder="请输入" className="w-full" />
-          </FormItem>
-          <FormItem name="manager_name" label="负责人姓名">
-            <Input placeholder="请输入负责人姓名" />
-          </FormItem>
-          <FormItem name="manager_email" label="负责人邮箱">
-            <Input placeholder="请输入负责人邮箱" />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="max_capacity" label="最大容量">
+              <InputNumber min={1} placeholder="请输入" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="manager_name" label="负责人姓名">
+              <Input placeholder="请输入负责人姓名" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item
+              name="manager_email"
+              label="负责人邮箱"
+              rules={[
+                {
+                  pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: '请输入有效的邮箱地址',
+                },
+              ]}
+            >
+              <Input placeholder="请输入负责人邮箱" />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <FormItem name="is_active" label="状态">
+        <Form.Item name="is_active" label="状态" valuePropName="checked">
           <Switch checkedChildren="启用" unCheckedChildren="停用" />
-        </FormItem>
+        </Form.Item>
       </Form>
     </Modal>
   );

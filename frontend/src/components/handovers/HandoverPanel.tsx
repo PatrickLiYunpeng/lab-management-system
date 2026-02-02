@@ -1,14 +1,16 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  CheckIcon,
-  XMarkIcon,
-  ExclamationCircleIcon,
-  ArrowPathIcon,
-  ChatBubbleLeftIcon,
-} from '@heroicons/react/24/outline';
-import { Button, Tag, Modal, TextArea, Badge, Tooltip, Spin, useToast } from '../ui';
+  CheckOutlined,
+  CloseOutlined,
+  ExclamationCircleOutlined,
+  ReloadOutlined,
+  MessageOutlined,
+} from '@ant-design/icons';
+import { Button, Tag, Modal, Input, Badge, Tooltip, Spin, App } from 'antd';
 import { handoverService } from '../../services/handoverService';
 import type { Handover, HandoverStatus, HandoverPriority } from '../../types';
+
+const { TextArea } = Input;
 
 interface HandoverPanelProps {
   mode?: 'incoming' | 'outgoing' | 'all';
@@ -41,7 +43,7 @@ export function HandoverPanel({ mode = 'incoming', workOrderId, onHandoverChange
   
   const errorShownRef = useRef(false);
   const isMountedRef = useRef(true);
-  const toast = useToast();
+  const { message } = App.useApp();
 
   const fetchHandovers = useCallback(async () => {
     setLoading(true);
@@ -66,14 +68,14 @@ export function HandoverPanel({ mode = 'incoming', workOrderId, onHandoverChange
       console.error('Failed to fetch handovers:', error);
       if (isMountedRef.current && !errorShownRef.current) {
         errorShownRef.current = true;
-        toast.error('获取交接列表失败');
+        message.error('获取交接列表失败');
       }
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
       }
     }
-  }, [mode, workOrderId, toast]);
+  }, [mode, workOrderId, message]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -98,11 +100,11 @@ export function HandoverPanel({ mode = 'incoming', workOrderId, onHandoverChange
   const handleCancel = async (handover: Handover) => {
     try {
       await handoverService.cancelHandover(handover.id);
-      toast.success('交接已取消');
+      message.success('交接已取消');
       fetchHandovers();
       onHandoverChange?.();
     } catch {
-      toast.error('取消交接失败');
+      message.error('取消交接失败');
     }
   };
 
@@ -111,13 +113,13 @@ export function HandoverPanel({ mode = 'incoming', workOrderId, onHandoverChange
     setActionLoading(true);
     try {
       await handoverService.acceptHandover(selectedHandover.id, acceptNotes || undefined);
-      toast.success('交接已接收');
+      message.success('交接已接收');
       setAcceptModalVisible(false);
       setSelectedHandover(null);
       fetchHandovers();
       onHandoverChange?.();
     } catch {
-      toast.error('接收交接失败');
+      message.error('接收交接失败');
     } finally {
       setActionLoading(false);
     }
@@ -125,19 +127,19 @@ export function HandoverPanel({ mode = 'incoming', workOrderId, onHandoverChange
 
   const confirmReject = async () => {
     if (!selectedHandover || !rejectReason.trim()) {
-      toast.warning('请填写拒绝原因');
+      message.warning('请填写拒绝原因');
       return;
     }
     setActionLoading(true);
     try {
       await handoverService.rejectHandover(selectedHandover.id, rejectReason);
-      toast.success('交接已拒绝');
+      message.success('交接已拒绝');
       setRejectModalVisible(false);
       setSelectedHandover(null);
       fetchHandovers();
       onHandoverChange?.();
     } catch {
-      toast.error('拒绝交接失败');
+      message.error('拒绝交接失败');
     } finally {
       setActionLoading(false);
     }
@@ -148,110 +150,107 @@ export function HandoverPanel({ mode = 'incoming', workOrderId, onHandoverChange
 
   return (
     <>
-      <div className="bg-white rounded-lg border border-neutral-200 shadow-sm">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
-          <div className="flex items-center gap-2">
-            <h3 className="text-base font-medium text-neutral-800">{title}</h3>
+      <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e5e5', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #e5e5e5' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 500, color: '#1f2937', margin: 0 }}>{title}</h3>
             {pendingCount > 0 && <Badge count={pendingCount} />}
           </div>
-          <Button size="small" onClick={fetchHandovers}>
-            <ArrowPathIcon className="w-4 h-4 mr-1" />
+          <Button size="small" icon={<ReloadOutlined />} onClick={fetchHandovers}>
             刷新
           </Button>
         </div>
         
-        <div className="p-4">
+        <div style={{ padding: 16 }}>
           {loading ? (
-            <div className="flex justify-center py-8">
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
               <Spin />
             </div>
           ) : handovers.length === 0 ? (
-            <div className="py-12 text-center text-neutral-400">
+            <div style={{ padding: '48px 0', textAlign: 'center', color: '#999' }}>
               暂无交接记录
             </div>
           ) : (
-            <div className="space-y-3">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {handovers.map((handover) => {
                 const statusCfg = statusConfig[handover.status];
                 const priorityCfg = priorityConfig[handover.priority];
                 const isPending = handover.status === 'pending';
 
                 return (
-                  <div key={handover.id} className="border border-neutral-200 rounded-md p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-2">
-                          <span className="font-medium text-neutral-800">
+                  <div key={handover.id} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                          <span style={{ fontWeight: 500, color: '#1f2937' }}>
                             {handover.task?.title || `任务 #${handover.task_id}`}
                           </span>
                           <Tag color={statusCfg.color}>{statusCfg.label}</Tag>
                           {handover.priority !== 'normal' && (
                             <Tag color={priorityCfg.color}>
-                              <ExclamationCircleIcon className="w-3 h-3 inline mr-1" />
+                              <ExclamationCircleOutlined style={{ marginRight: 4 }} />
                               {priorityCfg.label}
                             </Tag>
                           )}
                         </div>
                         
-                        <div className="text-sm text-neutral-500 space-x-3">
-                          <span>工单: {handover.work_order?.order_number || '-'}</span>
-                          <span>来自: {handover.from_technician?.name || '-'}</span>
+                        <div style={{ fontSize: 14, color: '#6b7280' }}>
+                          <span style={{ marginRight: 12 }}>工单: {handover.work_order?.order_number || '-'}</span>
+                          <span style={{ marginRight: 12 }}>来自: {handover.from_technician?.name || '-'}</span>
                           {handover.to_technician && (
                             <span>分配给: {handover.to_technician.name}</span>
                           )}
                         </div>
 
                         {handover.progress_summary && (
-                          <p className="mt-2 text-sm text-neutral-600 line-clamp-2">
-                            <span className="font-medium">已完成: </span>
+                          <p style={{ marginTop: 8, fontSize: 14, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                            <span style={{ fontWeight: 500 }}>已完成: </span>
                             {handover.progress_summary}
                           </p>
                         )}
 
                         {handover.pending_items && (
-                          <p className="mt-1 text-sm text-neutral-600 line-clamp-2">
-                            <span className="font-medium">待完成: </span>
+                          <p style={{ marginTop: 4, fontSize: 14, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                            <span style={{ fontWeight: 500 }}>待完成: </span>
                             {handover.pending_items}
                           </p>
                         )}
 
                         {handover.special_instructions && (
-                          <p className="mt-1 text-sm text-warning-600 line-clamp-2">
-                            <ExclamationCircleIcon className="w-4 h-4 inline mr-1" />
+                          <p style={{ marginTop: 4, fontSize: 14, color: '#d97706', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                            <ExclamationCircleOutlined style={{ marginRight: 4 }} />
                             {handover.special_instructions}
                           </p>
                         )}
 
                         {handover.notes.length > 0 && (
                           <Tooltip title={`${handover.notes.length} 条备注`}>
-                            <span>
-                              <Tag className="mt-2">
-                                <ChatBubbleLeftIcon className="w-3 h-3 inline mr-1" />
-                                {handover.notes.length} 备注
-                              </Tag>
-                            </span>
+                            <Tag style={{ marginTop: 8 }}>
+                              <MessageOutlined style={{ marginRight: 4 }} />
+                              {handover.notes.length} 备注
+                            </Tag>
                           </Tooltip>
                         )}
                       </div>
 
                       {isPending && (
-                        <div className="flex items-center gap-2 ml-4">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 16 }}>
                           {mode === 'incoming' && (
                             <>
                               <Button
-                                variant="primary"
+                                type="primary"
                                 size="small"
+                                icon={<CheckOutlined />}
                                 onClick={() => handleAccept(handover)}
                               >
-                                <CheckIcon className="w-4 h-4 mr-1" />
                                 接收
                               </Button>
                               <Button
                                 size="small"
                                 danger
+                                icon={<CloseOutlined />}
                                 onClick={() => handleReject(handover)}
                               >
-                                <XMarkIcon className="w-4 h-4 mr-1" />
                                 拒绝
                               </Button>
                             </>
@@ -282,7 +281,7 @@ export function HandoverPanel({ mode = 'incoming', workOrderId, onHandoverChange
         okText="确认接收"
         cancelText="取消"
       >
-        <p className="mb-3">确认接收此任务的交接？</p>
+        <p style={{ marginBottom: 12 }}>确认接收此任务的交接？</p>
         <TextArea
           rows={3}
           placeholder="接收备注（可选）"
@@ -301,7 +300,7 @@ export function HandoverPanel({ mode = 'incoming', workOrderId, onHandoverChange
         okText="确认拒绝"
         cancelText="取消"
       >
-        <p className="mb-3">请填写拒绝原因：</p>
+        <p style={{ marginBottom: 12 }}>请填写拒绝原因：</p>
         <TextArea
           rows={3}
           placeholder="拒绝原因（必填）"

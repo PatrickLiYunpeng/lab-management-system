@@ -1,23 +1,26 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
-  UsersIcon,
-  UserIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  ArrowPathIcon,
-  CalendarDaysIcon,
-} from '@heroicons/react/24/outline';
+  TeamOutlined,
+  UserOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  ReloadOutlined,
+  CalendarOutlined,
+  InboxOutlined,
+} from '@ant-design/icons';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import dayjs, { type Dayjs } from 'dayjs';
+import { Card, Button, Select, Spin, Progress, Alert, Tooltip, DatePicker, Space, Row, Col, Segmented, Typography, Tabs, Empty } from 'antd';
 import { dashboardService } from '../services/dashboardService';
 import { siteService } from '../services/siteService';
 import { laboratoryService } from '../services/laboratoryService';
 import type { PersonnelGanttDataResponse, PersonnelGanttItem, PersonnelEfficiency } from '../services/dashboardService';
 import type { Site, Laboratory } from '../types';
-import { Button, Select, Spin, Progress, Alert, Tooltip, DatePicker } from '../components/ui';
+
+const { Text, Title } = Typography;
 
 type Language = 'zh' | 'en';
 
@@ -108,30 +111,30 @@ const translations = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  available: '#22c55e',
-  busy: '#3b82f6',
-  on_leave: '#f59e0b',
-  borrowed: '#8b5cf6',
+  available: '#52c41a',
+  busy: '#1677ff',
+  on_leave: '#faad14',
+  borrowed: '#722ed1',
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  admin: '#ef4444',
-  manager: '#f97316',
-  engineer: '#3b82f6',
-  technician: '#22c55e',
-  viewer: '#6b7280',
+  admin: '#ff4d4f',
+  manager: '#fa8c16',
+  engineer: '#1677ff',
+  technician: '#52c41a',
+  viewer: '#8c8c8c',
 };
 
 const PERSONNEL_ROLES = ['engineer', 'technician', 'manager', 'admin'] as const;
 type PersonnelRoleKey = typeof PERSONNEL_ROLES[number];
 
 const TASK_STATUS_COLORS: Record<string, string> = {
-  pending: '#f59e0b',
-  assigned: '#3b82f6',
-  in_progress: '#22c55e',
-  completed: '#6b7280',
-  blocked: '#ef4444',
-  cancelled: '#d1d5db',
+  pending: '#faad14',
+  assigned: '#1677ff',
+  in_progress: '#52c41a',
+  completed: '#8c8c8c',
+  blocked: '#ff4d4f',
+  cancelled: '#d9d9d9',
 };
 
 interface GanttChartContentProps {
@@ -145,7 +148,7 @@ interface GanttChartContentProps {
 function GanttChartContent({ personnel, startDate, endDate, loading, t }: GanttChartContentProps) {
   if (loading) {
     return (
-      <div className="flex justify-center py-10">
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
         <Spin />
       </div>
     );
@@ -153,24 +156,22 @@ function GanttChartContent({ personnel, startDate, endDate, loading, t }: GanttC
 
   if (personnel.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-neutral-400">
-        <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-        </svg>
-        <span>{t.noPersonnel}</span>
-      </div>
+      <Empty
+        image={<InboxOutlined style={{ fontSize: 48, color: '#d9d9d9' }} />}
+        description={t.noPersonnel}
+        style={{ padding: '48px 0' }}
+      />
     );
   }
 
   const totalPersonnelWithSchedules = personnel.filter(p => p.schedules.length > 0);
   if (totalPersonnelWithSchedules.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-neutral-400">
-        <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-        <span>{t.noSchedules}</span>
-      </div>
+      <Empty
+        image={<CalendarOutlined style={{ fontSize: 48, color: '#d9d9d9' }} />}
+        description={t.noSchedules}
+        style={{ padding: '48px 0' }}
+      />
     );
   }
 
@@ -189,14 +190,13 @@ function GanttChartContent({ personnel, startDate, endDate, loading, t }: GanttC
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div style={{ overflowX: 'auto' }}>
       {/* Time axis header */}
-      <div className="flex border-b border-neutral-200 mb-2 pl-44 relative h-6">
+      <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0', marginBottom: 8, paddingLeft: 176, position: 'relative', height: 24 }}>
         {timeLabels.map((item, index) => (
           <div
             key={index}
-            className="absolute text-xs text-neutral-500 -translate-x-1/2"
-            style={{ left: `calc(176px + ${item.position}%)` }}
+            style={{ position: 'absolute', fontSize: 12, color: '#8c8c8c', transform: 'translateX(-50%)', left: `calc(176px + ${item.position}%)` }}
           >
             {item.label}
           </div>
@@ -207,26 +207,25 @@ function GanttChartContent({ personnel, startDate, endDate, loading, t }: GanttC
       {personnel.map((p) => (
         <div 
           key={p.id}
-          className="flex items-center border-b border-neutral-100 min-h-[36px] py-1"
+          style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #f5f5f5', minHeight: 36, padding: '4px 0' }}
         >
           {/* Personnel name */}
-          <div className="w-44 flex-shrink-0 pr-2 text-xs overflow-hidden text-ellipsis whitespace-nowrap">
+          <div style={{ width: 176, flexShrink: 0, paddingRight: 8, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             <Tooltip title={`${p.name} (${p.employee_id}) - ${p.laboratory_name}`}>
-              <span className="flex items-center gap-1">
-                <UserIcon className="w-3 h-3" style={{ color: ROLE_COLORS[p.role] || '#666' }} />
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <UserOutlined style={{ fontSize: 12, color: ROLE_COLORS[p.role] || '#666' }} />
                 {p.name}
               </span>
             </Tooltip>
           </div>
 
           {/* Schedule bars container */}
-          <div className="flex-1 relative h-7 bg-neutral-50 rounded">
+          <div style={{ flex: 1, position: 'relative', height: 28, backgroundColor: '#fafafa', borderRadius: 4 }}>
             {/* Day separator lines */}
             {timeLabels.map((item, index) => (
               <div
                 key={index}
-                className="absolute top-0 bottom-0 w-px bg-neutral-200"
-                style={{ left: `${item.position}%` }}
+                style={{ position: 'absolute', top: 0, bottom: 0, width: 1, backgroundColor: '#f0f0f0', left: `${item.position}%` }}
               />
             ))}
 
@@ -246,16 +245,35 @@ function GanttChartContent({ personnel, startDate, endDate, loading, t }: GanttC
 
               if (width <= 0) return null;
 
-              const barColor = TASK_STATUS_COLORS[schedule.status] || '#3b82f6';
+              const barColor = TASK_STATUS_COLORS[schedule.status] || '#1677ff';
 
               return (
                 <Tooltip
                   key={schedule.id}
-                  title={`${schedule.title}\n${scheduleStart.format('MM-DD HH:mm')} - ${scheduleEnd.format('MM-DD HH:mm')}${schedule.work_order_number ? `\n${t.workOrder}: ${schedule.work_order_number}` : ''}\n${t.task}: ${schedule.task_number}${schedule.equipment_name ? `\n${t.equipment}: ${schedule.equipment_name}` : ''}`}
+                  title={
+                    <div>
+                      <div>{schedule.title}</div>
+                      <div>{scheduleStart.format('MM-DD HH:mm')} - {scheduleEnd.format('MM-DD HH:mm')}</div>
+                      {schedule.work_order_number && <div>{t.workOrder}: {schedule.work_order_number}</div>}
+                      <div>{t.task}: {schedule.task_number}</div>
+                      {schedule.equipment_name && <div>{t.equipment}: {schedule.equipment_name}</div>}
+                    </div>
+                  }
                 >
                   <div
-                    className="absolute h-5 top-1 rounded cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-white px-1 leading-5"
                     style={{
+                      position: 'absolute',
+                      height: 20,
+                      top: 4,
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      fontSize: 10,
+                      color: '#fff',
+                      padding: '0 4px',
+                      lineHeight: '20px',
                       left: `${left}%`,
                       width: `${Math.max(width, 1)}%`,
                       backgroundColor: barColor,
@@ -271,13 +289,13 @@ function GanttChartContent({ personnel, startDate, endDate, loading, t }: GanttC
       ))}
 
       {/* Legend */}
-      <div className="mt-4 flex gap-4 flex-wrap">
+      <div style={{ marginTop: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         {Object.entries(TASK_STATUS_COLORS).map(([status, color]) => (
-          <div key={status} className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded" style={{ backgroundColor: color }} />
-            <span className="text-xs text-neutral-500">
+          <div key={status} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: color }} />
+            <Text type="secondary" style={{ fontSize: 12 }}>
               {t[status as keyof typeof t] || status}
-            </span>
+            </Text>
           </div>
         ))}
       </div>
@@ -403,17 +421,6 @@ export function PersonnelDashboard() {
     return ganttData.personnel.filter(p => p.role === role);
   };
 
-  const handleSiteChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setSiteId(v ? Number(v) : undefined);
-    setLaboratoryId(undefined);
-  };
-
-  const handleLabChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setLaboratoryId(v ? Number(v) : undefined);
-  };
-
   const rolePieData = Object.entries(personnelSummary.by_role).map(([role, count]) => ({
     name: t[role as keyof typeof t] || role,
     value: count,
@@ -433,176 +440,202 @@ export function PersonnelDashboard() {
     tasks: p.completed_tasks,
   }));
 
+  const tabItems = PERSONNEL_ROLES.map((role) => ({
+    key: role,
+    label: (
+      <span style={{ color: activeRole === role ? ROLE_COLORS[role] : undefined }}>
+        {t[role as keyof typeof t]}
+        <Text type="secondary" style={{ marginLeft: 4 }}>
+          ({getPersonnelByRole(role).length})
+        </Text>
+      </span>
+    ),
+    children: (
+      <GanttChartContent
+        personnel={getPersonnelByRole(role)}
+        startDate={ganttStartDate}
+        endDate={ganttEndDate}
+        loading={ganttLoading}
+        t={t}
+      />
+    ),
+  }));
+
   if (error) {
-    return <Alert message={error} type="error" className="m-6" />;
+    return <Alert message={error} type="error" style={{ margin: 24 }} />;
   }
 
   return (
     <div>
       {/* Header with controls */}
-      <div className="mb-6">
-        <div className="flex flex-wrap justify-between items-center gap-4">
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
           <div>
-            <h1 className="text-xl font-semibold text-neutral-900">{t.title}</h1>
+            <Title level={4} style={{ margin: 0 }}>{t.title}</Title>
             {lastUpdated && (
-              <p className="text-xs text-neutral-500">
+              <Text type="secondary" style={{ fontSize: 12 }}>
                 {t.lastUpdated}: {lastUpdated.toLocaleTimeString()}
-              </p>
+              </Text>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <Space wrap>
             {/* Language Toggle */}
-            <div className="flex rounded-md overflow-hidden border border-neutral-200">
-              <button
-                onClick={() => setLanguage('zh')}
-                className={`px-3 py-1.5 text-sm ${language === 'zh' ? 'bg-primary-500 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
-              >
-                中文
-              </button>
-              <button
-                onClick={() => setLanguage('en')}
-                className={`px-3 py-1.5 text-sm ${language === 'en' ? 'bg-primary-500 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
-              >
-                EN
-              </button>
-            </div>
+            <Segmented
+              value={language}
+              onChange={(value) => setLanguage(value as Language)}
+              options={[
+                { label: '中文', value: 'zh' },
+                { label: 'EN', value: 'en' },
+              ]}
+            />
 
             <Select
               placeholder={t.allSites}
               value={siteId}
-              onChange={handleSiteChange}
+              onChange={(value) => {
+                setSiteId(value);
+                setLaboratoryId(undefined);
+              }}
               allowClear
-              className="w-36"
+              style={{ width: 140 }}
               options={sites.map(s => ({ label: s.name, value: s.id }))}
             />
 
             <Select
               placeholder={t.allLaboratories}
               value={laboratoryId}
-              onChange={handleLabChange}
+              onChange={setLaboratoryId}
               allowClear
-              className="w-44"
+              style={{ width: 180 }}
               options={filteredLaboratories.map(l => ({ label: l.name, value: l.id }))}
             />
 
             <Tooltip title={t.refresh}>
               <Button
-                variant="default"
-                icon={<ArrowPathIcon className="w-4 h-4" />}
+                icon={<ReloadOutlined />}
                 onClick={() => { fetchData(); fetchGanttData(); }}
                 loading={loading}
               />
             </Tooltip>
-          </div>
+          </Space>
         </div>
       </div>
 
       {loading && !ganttData ? (
-        <div className="flex flex-col items-center justify-center py-24">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '96px 0' }}>
           <Spin size="large" />
-          <p className="mt-4 text-neutral-500">{t.loading}</p>
+          <Text type="secondary" style={{ marginTop: 16 }}>{t.loading}</Text>
         </div>
       ) : (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            <div className="bg-white rounded-lg border border-neutral-200 p-4">
-              <div className="flex items-center gap-3">
-                <UsersIcon className="w-8 h-8 text-primary-500" />
-                <div>
-                  <p className="text-sm text-neutral-500">{t.totalPersonnel}</p>
-                  <p className="text-2xl font-semibold">{personnelSummary.total}</p>
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            <Col xs={24} sm={12} lg={6}>
+              <Card size="small">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <TeamOutlined style={{ fontSize: 32, color: '#1677ff' }} />
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 14 }}>{t.totalPersonnel}</Text>
+                    <div style={{ fontSize: 24, fontWeight: 600 }}>{personnelSummary.total}</div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg border border-neutral-200 p-4">
-              <div className="flex items-center gap-3">
-                <CheckCircleIcon className="w-8 h-8 text-success-500" />
-                <div>
-                  <p className="text-sm text-neutral-500">{t.availablePersonnel}</p>
-                  <p className="text-2xl font-semibold">{personnelSummary.available}</p>
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Card size="small">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <CheckCircleOutlined style={{ fontSize: 32, color: '#52c41a' }} />
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 14 }}>{t.availablePersonnel}</Text>
+                    <div style={{ fontSize: 24, fontWeight: 600 }}>{personnelSummary.available}</div>
+                  </div>
                 </div>
-              </div>
-              <Progress
-                percent={personnelSummary.total ? Math.round((personnelSummary.available / personnelSummary.total) * 100) : 0}
-                size="small"
-                strokeColor="success"
-                showInfo={false}
-                className="mt-2"
-              />
-            </div>
-            <div className="bg-white rounded-lg border border-neutral-200 p-4">
-              <div className="flex items-center gap-3">
-                <ClockIcon className="w-8 h-8 text-primary-500" />
-                <div>
-                  <p className="text-sm text-neutral-500">{t.busyPersonnel}</p>
-                  <p className="text-2xl font-semibold">{personnelSummary.busy}</p>
+                <Progress
+                  percent={personnelSummary.total ? Math.round((personnelSummary.available / personnelSummary.total) * 100) : 0}
+                  size="small"
+                  strokeColor="#52c41a"
+                  showInfo={false}
+                  style={{ marginTop: 8 }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Card size="small">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <ClockCircleOutlined style={{ fontSize: 32, color: '#1677ff' }} />
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 14 }}>{t.busyPersonnel}</Text>
+                    <div style={{ fontSize: 24, fontWeight: 600 }}>{personnelSummary.busy}</div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg border border-neutral-200 p-4">
-              <div className="flex items-center gap-3">
-                <UserIcon className="w-8 h-8 text-warning-500" />
-                <div>
-                  <p className="text-sm text-neutral-500">{t.onLeavePersonnel}</p>
-                  <p className="text-2xl font-semibold">{personnelSummary.on_leave}</p>
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Card size="small">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <UserOutlined style={{ fontSize: 32, color: '#faad14' }} />
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 14 }}>{t.onLeavePersonnel}</Text>
+                    <div style={{ fontSize: 24, fontWeight: 600 }}>{personnelSummary.on_leave}</div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
+              </Card>
+            </Col>
+          </Row>
 
           {/* Charts Row 1: Role and Status Distribution */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-            <div className="bg-white rounded-lg border border-neutral-200 p-4">
-              <h3 className="text-sm font-medium text-neutral-700 mb-4">{t.byRole}</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={rolePieData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    dataKey="value"
-                  >
-                    {rolePieData.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip formatter={(value) => [value, t.personnelCount]} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="bg-white rounded-lg border border-neutral-200 p-4">
-              <h3 className="text-sm font-medium text-neutral-700 mb-4">{t.byStatus}</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={statusPieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={100}
-                    dataKey="value"
-                    label={({ name, value }) => `${name}: ${value}`}
-                  >
-                    {statusPieData.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip formatter={(value) => [value, t.personnelCount]} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            <Col xs={24} lg={12}>
+              <Card size="small" title={t.byRole}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={rolePieData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                      outerRadius={100}
+                      dataKey="value"
+                    >
+                      {rolePieData.map((entry, index) => (
+                        <Cell key={index} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip formatter={(value) => [value, t.personnelCount]} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Card>
+            </Col>
+            <Col xs={24} lg={12}>
+              <Card size="small" title={t.byStatus}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={statusPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={100}
+                      dataKey="value"
+                      label={({ name, value }) => `${name}: ${value}`}
+                    >
+                      {statusPieData.map((entry, index) => (
+                        <Cell key={index} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip formatter={(value) => [value, t.personnelCount]} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Card>
+            </Col>
+          </Row>
 
           {/* Charts Row 2: Efficiency by Personnel */}
           {efficiencyBarData.length > 0 && (
-            <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4">
-              <h3 className="text-sm font-medium text-neutral-700 mb-4">{t.efficiencyByRole}</h3>
+            <Card size="small" title={t.efficiencyByRole} style={{ marginBottom: 16 }}>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={efficiencyBarData} layout="vertical" margin={{ left: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -617,83 +650,58 @@ export function PersonnelDashboard() {
                       <Cell
                         key={index}
                         fill={
-                          entry.efficiency >= 80 ? '#22c55e' :
-                          entry.efficiency >= 60 ? '#3b82f6' :
-                          entry.efficiency >= 40 ? '#f59e0b' : '#ef4444'
+                          entry.efficiency >= 80 ? '#52c41a' :
+                          entry.efficiency >= 60 ? '#1677ff' :
+                          entry.efficiency >= 40 ? '#faad14' : '#ff4d4f'
                         }
                       />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            </div>
+            </Card>
           )}
 
           {/* Personnel Scheduling Gantt Chart */}
-          <div className="bg-white rounded-lg border border-neutral-200">
-            <div className="flex flex-wrap items-center justify-between px-4 py-3 border-b border-neutral-200 bg-neutral-50 gap-3">
-              <div className="flex items-center gap-2">
-                <CalendarDaysIcon className="w-5 h-5 text-neutral-500" />
-                <span className="font-medium text-neutral-900">{t.ganttChart}</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm text-neutral-500">{t.dateRange}:</span>
+          <Card size="small">
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
+              <Space>
+                <CalendarOutlined style={{ fontSize: 16, color: '#8c8c8c' }} />
+                <Text strong>{t.ganttChart}</Text>
+              </Space>
+              <Space wrap>
+                <Text type="secondary" style={{ fontSize: 14 }}>{t.dateRange}:</Text>
                 <DatePicker
                   value={ganttStartDate}
                   onChange={(date) => date && setGanttStartDate(date)}
                   size="small"
                 />
-                <span className="text-neutral-400">-</span>
+                <span style={{ color: '#d9d9d9' }}>-</span>
                 <DatePicker
                   value={ganttEndDate}
                   onChange={(date) => date && setGanttEndDate(date)}
                   size="small"
                 />
                 <Tooltip title={t.maxRangeWarning}>
-                  <span className="text-xs text-neutral-400">
+                  <Text type="secondary" style={{ fontSize: 12 }}>
                     (max 7 {language === 'zh' ? '天' : 'days'})
-                  </span>
+                  </Text>
                 </Tooltip>
                 <Button
-                  variant="default"
                   size="small"
-                  icon={<ArrowPathIcon className="w-4 h-4" />}
+                  icon={<ReloadOutlined />}
                   onClick={fetchGanttData}
                   loading={ganttLoading}
                 />
-              </div>
+              </Space>
             </div>
-            <div className="p-4">
-              {/* Tab Navigation */}
-              <div className="flex gap-1 border-b border-neutral-200 mb-4">
-                {PERSONNEL_ROLES.map((role) => (
-                  <button
-                    key={role}
-                    onClick={() => setActiveRole(role)}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                      activeRole === role
-                        ? 'border-primary-500 text-primary-600'
-                        : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
-                    }`}
-                    style={{ color: activeRole === role ? ROLE_COLORS[role] : undefined }}
-                  >
-                    {t[role as keyof typeof t]}
-                    <span className="ml-1 text-neutral-400">
-                      ({getPersonnelByRole(role).length})
-                    </span>
-                  </button>
-                ))}
-              </div>
-              
-              <GanttChartContent
-                personnel={getPersonnelByRole(activeRole)}
-                startDate={ganttStartDate}
-                endDate={ganttEndDate}
-                loading={ganttLoading}
-                t={t}
-              />
-            </div>
-          </div>
+            
+            <Tabs
+              activeKey={activeRole}
+              onChange={(key) => setActiveRole(key as PersonnelRoleKey)}
+              items={tabItems}
+            />
+          </Card>
         </>
       )}
     </div>

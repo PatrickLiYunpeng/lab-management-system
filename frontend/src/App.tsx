@@ -1,11 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
-import { Spin, ToastProvider } from './components/ui';
+import { ConfigProvider, Spin, App as AntApp } from 'antd';
+import zhCN from 'antd/locale/zh_CN';
+import dayjs from 'dayjs';
+import 'dayjs/locale/zh-cn';
 import { MainLayout } from './layouts/MainLayout';
 import { LoginPage } from './pages/LoginPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuthStore } from './stores/authStore';
 import { getRoleHomePage } from './utils/permissions';
+
+dayjs.locale('zh-cn');
 
 // Lazy-loaded page components for code splitting
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
@@ -33,7 +38,7 @@ const WorkOrderQueryPage = lazy(() => import('./pages/WorkOrderQueryPage'));
 
 // Loading fallback component
 const PageLoading = () => (
-  <div className="flex justify-center items-center h-full min-h-[200px]">
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: 200 }}>
     <Spin size="large" />
   </div>
 );
@@ -52,41 +57,51 @@ function RoleBasedRedirect() {
 
 function App() {
   return (
-    <ToastProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route element={<ProtectedRoute />}>
-            <Route element={<MainLayout />}>
-              <Route path="/dashboard" element={<Suspense fallback={<PageLoading />}><DashboardPage /></Suspense>} />
-              <Route path="/equipment-dashboard" element={<Suspense fallback={<PageLoading />}><EquipmentDashboard /></Suspense>} />
-              <Route path="/personnel-dashboard" element={<Suspense fallback={<PageLoading />}><PersonnelDashboard /></Suspense>} />
-              <Route path="/sites" element={<Suspense fallback={<PageLoading />}><SitesPage /></Suspense>} />
-              <Route path="/laboratories" element={<Suspense fallback={<PageLoading />}><LaboratoriesPage /></Suspense>} />
-              <Route path="/personnel" element={<Suspense fallback={<PageLoading />}><PersonnelPage /></Suspense>} />
-              <Route path="/skills" element={<Suspense fallback={<PageLoading />}><SkillsMatrix /></Suspense>} />
-              <Route path="/skills-config" element={<Suspense fallback={<PageLoading />}><SkillsConfig /></Suspense>} />
-              <Route path="/transfers" element={<Suspense fallback={<PageLoading />}><Transfers /></Suspense>} />
-              <Route path="/shifts" element={<Suspense fallback={<PageLoading />}><ShiftsPage /></Suspense>} />
-              <Route path="/equipment" element={<Suspense fallback={<PageLoading />}><EquipmentPage /></Suspense>} />
-              <Route path="/materials" element={<Suspense fallback={<PageLoading />}><MaterialsPage /></Suspense>} />
-              <Route path="/work-orders" element={<Suspense fallback={<PageLoading />}><WorkOrdersPage /></Suspense>} />
-              <Route path="/work-order-query" element={<Suspense fallback={<PageLoading />}><WorkOrderQueryPage /></Suspense>} />
-              <Route path="/clients" element={<Suspense fallback={<PageLoading />}><ClientsPage /></Suspense>} />
-              <Route path="/client-slas" element={<Suspense fallback={<PageLoading />}><ClientSLAsPage /></Suspense>} />
-              <Route path="/source-categories" element={<Suspense fallback={<PageLoading />}><TestingSourceCategoriesPage /></Suspense>} />
-              <Route path="/handovers" element={<Suspense fallback={<PageLoading />}><HandoversPage /></Suspense>} />
-              <Route path="/methods" element={<Suspense fallback={<PageLoading />}><MethodsPage /></Suspense>} />
-              <Route path="/audit-logs" element={<Suspense fallback={<PageLoading />}><AuditLogsPage /></Suspense>} />
-              <Route path="/user-management" element={<Suspense fallback={<PageLoading />}><UserManagementPage /></Suspense>} />
-              <Route path="/settings" element={<Suspense fallback={<PageLoading />}><SettingsPage /></Suspense>} />
-              <Route path="/" element={<RoleBasedRedirect />} />
+    <ConfigProvider
+      locale={zhCN}
+      theme={{
+        token: {
+          colorPrimary: '#1677ff',
+          borderRadius: 6,
+        },
+      }}
+    >
+      <AntApp>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route element={<ProtectedRoute />}>
+              <Route element={<MainLayout />}>
+                <Route path="/dashboard" element={<Suspense fallback={<PageLoading />}><DashboardPage /></Suspense>} />
+                <Route path="/equipment-dashboard" element={<Suspense fallback={<PageLoading />}><EquipmentDashboard /></Suspense>} />
+                <Route path="/personnel-dashboard" element={<Suspense fallback={<PageLoading />}><PersonnelDashboard /></Suspense>} />
+                <Route path="/sites" element={<Suspense fallback={<PageLoading />}><SitesPage /></Suspense>} />
+                <Route path="/laboratories" element={<Suspense fallback={<PageLoading />}><LaboratoriesPage /></Suspense>} />
+                <Route path="/personnel" element={<Suspense fallback={<PageLoading />}><PersonnelPage /></Suspense>} />
+                <Route path="/skills" element={<Suspense fallback={<PageLoading />}><SkillsMatrix /></Suspense>} />
+                <Route path="/skills-config" element={<Suspense fallback={<PageLoading />}><SkillsConfig /></Suspense>} />
+                <Route path="/transfers" element={<Suspense fallback={<PageLoading />}><Transfers /></Suspense>} />
+                <Route path="/shifts" element={<Suspense fallback={<PageLoading />}><ShiftsPage /></Suspense>} />
+                <Route path="/equipment" element={<Suspense fallback={<PageLoading />}><EquipmentPage /></Suspense>} />
+                <Route path="/materials" element={<Suspense fallback={<PageLoading />}><MaterialsPage /></Suspense>} />
+                <Route path="/work-orders" element={<Suspense fallback={<PageLoading />}><WorkOrdersPage /></Suspense>} />
+                <Route path="/work-order-query" element={<Suspense fallback={<PageLoading />}><WorkOrderQueryPage /></Suspense>} />
+                <Route path="/clients" element={<Suspense fallback={<PageLoading />}><ClientsPage /></Suspense>} />
+                <Route path="/client-slas" element={<Suspense fallback={<PageLoading />}><ClientSLAsPage /></Suspense>} />
+                <Route path="/source-categories" element={<Suspense fallback={<PageLoading />}><TestingSourceCategoriesPage /></Suspense>} />
+                <Route path="/handovers" element={<Suspense fallback={<PageLoading />}><HandoversPage /></Suspense>} />
+                <Route path="/methods" element={<Suspense fallback={<PageLoading />}><MethodsPage /></Suspense>} />
+                <Route path="/audit-logs" element={<Suspense fallback={<PageLoading />}><AuditLogsPage /></Suspense>} />
+                <Route path="/user-management" element={<Suspense fallback={<PageLoading />}><UserManagementPage /></Suspense>} />
+                <Route path="/settings" element={<Suspense fallback={<PageLoading />}><SettingsPage /></Suspense>} />
+                <Route path="/" element={<RoleBasedRedirect />} />
+              </Route>
             </Route>
-          </Route>
-          <Route path="*" element={<RoleBasedRedirect />} />
-        </Routes>
-      </BrowserRouter>
-    </ToastProvider>
+            <Route path="*" element={<RoleBasedRedirect />} />
+          </Routes>
+        </BrowserRouter>
+      </AntApp>
+    </ConfigProvider>
   );
 }
 

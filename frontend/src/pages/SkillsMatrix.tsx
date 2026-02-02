@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  PlusIcon,
-  PencilIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-} from '@heroicons/react/24/outline';
-import { Table, Button, Input, Select, Popconfirm, Tag, useToast, type TableColumn } from '../components/ui';
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  SearchOutlined,
+} from '@ant-design/icons';
+import { App, Table, Button, Input, Select, Popconfirm, Tag } from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { skillService } from '../services/skillService';
 import { SkillModal } from '../components/skills/SkillModal';
 import { StatusTag } from '../components/common/StatusTag';
@@ -68,7 +69,7 @@ export default function SkillsMatrix() {
   // Refs to prevent duplicate error messages and track mount state
   const errorShownRef = useRef(false);
   const isMountedRef = useRef(true);
-  const toast = useToast();
+  const { message } = App.useApp();
 
   const fetchSkills = useCallback(
     async (page = 1, pageSize = 10, search = '', category = '', labType = '') => {
@@ -93,7 +94,7 @@ export default function SkillsMatrix() {
       } catch {
         if (isMountedRef.current && !errorShownRef.current) {
           errorShownRef.current = true;
-          toast.error('获取技能列表失败');
+          message.error('获取技能列表失败');
         }
       } finally {
         if (isMountedRef.current) {
@@ -101,7 +102,7 @@ export default function SkillsMatrix() {
         }
       }
     },
-    [toast]
+    [message]
   );
 
   useEffect(() => {
@@ -123,20 +124,18 @@ export default function SkillsMatrix() {
     return () => clearTimeout(timer);
   }, [searchValue, searchText, pagination.pageSize, categoryFilter, labTypeFilter, fetchSkills]);
 
-  const handleTableChange = (page: number, pageSize: number) => {
-    fetchSkills(page, pageSize, searchText, categoryFilter, labTypeFilter);
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
+    fetchSkills(paginationConfig.current || 1, paginationConfig.pageSize || 10, searchText, categoryFilter, labTypeFilter);
   };
 
-  const handleCategoryChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? String(value[0]) : String(value);
-    setCategoryFilter(v);
-    fetchSkills(1, pagination.pageSize, searchText, v, labTypeFilter);
+  const handleCategoryChange = (value: string) => {
+    setCategoryFilter(value);
+    fetchSkills(1, pagination.pageSize, searchText, value, labTypeFilter);
   };
 
-  const handleLabTypeChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? String(value[0]) : String(value);
-    setLabTypeFilter(v);
-    fetchSkills(1, pagination.pageSize, searchText, categoryFilter, v);
+  const handleLabTypeChange = (value: string) => {
+    setLabTypeFilter(value);
+    fetchSkills(1, pagination.pageSize, searchText, categoryFilter, value);
   };
 
   const handleAdd = () => {
@@ -152,10 +151,10 @@ export default function SkillsMatrix() {
   const handleDelete = async (id: number) => {
     try {
       await skillService.deleteSkill(id);
-      toast.success('删除成功');
+      message.success('删除成功');
       fetchSkills(pagination.current, pagination.pageSize, searchText, categoryFilter, labTypeFilter);
     } catch {
-      toast.error('删除失败');
+      message.error('删除失败');
     }
   };
 
@@ -170,7 +169,7 @@ export default function SkillsMatrix() {
     setEditingSkill(null);
   };
 
-  const columns: TableColumn<Skill>[] = [
+  const columns: ColumnsType<Skill> = [
     {
       title: '技能代码',
       dataIndex: 'code',
@@ -188,9 +187,9 @@ export default function SkillsMatrix() {
       dataIndex: 'category',
       key: 'category',
       width: 120,
-      render: (category: unknown) => (
-        <Tag color={categoryColors[category as string] || 'default'}>
-          {categoryLabels[category as string] || (category as string)}
+      render: (category: string) => (
+        <Tag color={categoryColors[category] || 'default'}>
+          {categoryLabels[category] || category}
         </Tag>
       ),
     },
@@ -199,16 +198,16 @@ export default function SkillsMatrix() {
       dataIndex: 'lab_type',
       key: 'lab_type',
       width: 100,
-      render: (labType: unknown) => ((labType as string) ? labTypeLabels[labType as string] || (labType as string) : '通用'),
+      render: (labType: string) => (labType ? labTypeLabels[labType] || labType : '通用'),
     },
     {
       title: '需要认证',
       dataIndex: 'requires_certification',
       key: 'requires_certification',
       width: 100,
-      render: (requires: unknown) => (
-        <Tag color={(requires as boolean) ? 'warning' : 'default'}>
-          {(requires as boolean) ? '是' : '否'}
+      render: (requires: boolean) => (
+        <Tag color={requires ? 'warning' : 'default'}>
+          {requires ? '是' : '否'}
         </Tag>
       ),
     },
@@ -217,27 +216,27 @@ export default function SkillsMatrix() {
       dataIndex: 'certification_validity_days',
       key: 'certification_validity_days',
       width: 120,
-      render: (days: unknown) => ((days as number) ? `${days}天` : '-'),
+      render: (days: number) => (days ? `${days}天` : '-'),
     },
     {
       title: '状态',
       dataIndex: 'is_active',
       key: 'is_active',
       width: 80,
-      render: (isActive: unknown) => <StatusTag isActive={isActive as boolean} />,
+      render: (isActive: boolean) => <StatusTag isActive={isActive} />,
     },
     {
       title: '操作',
       key: 'action',
       width: 150,
-      render: (_: unknown, record: Skill) => (
-        <div className="flex items-center gap-2">
+      render: (_, record) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Button
-            variant="link"
+            type="link"
             size="small"
+            icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
           >
-            <PencilIcon className="w-4 h-4 mr-1" />
             编辑
           </Button>
           <Popconfirm
@@ -247,8 +246,7 @@ export default function SkillsMatrix() {
             okText="确定"
             cancelText="取消"
           >
-            <Button variant="link" size="small" danger>
-              <TrashIcon className="w-4 h-4 mr-1" />
+            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
               删除
             </Button>
           </Popconfirm>
@@ -259,31 +257,30 @@ export default function SkillsMatrix() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Input
             placeholder="搜索技能名称或代码"
-            prefix={<MagnifyingGlassIcon className="w-4 h-4 text-neutral-400" />}
+            prefix={<SearchOutlined style={{ color: '#999' }} />}
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            className="w-64"
+            style={{ width: 256 }}
             allowClear
           />
           <Select
             value={categoryFilter}
             onChange={handleCategoryChange}
             options={categoryOptions}
-            className="w-36"
+            style={{ width: 144 }}
           />
           <Select
             value={labTypeFilter}
             onChange={handleLabTypeChange}
             options={labTypeOptions}
-            className="w-36"
+            style={{ width: 144 }}
           />
         </div>
-        <Button variant="primary" onClick={handleAdd}>
-          <PlusIcon className="w-4 h-4 mr-1" />
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新增技能
         </Button>
       </div>
@@ -300,8 +297,8 @@ export default function SkillsMatrix() {
           showSizeChanger: true,
           showQuickJumper: true,
           showTotal: (total) => `共 ${total} 条`,
-          onChange: handleTableChange,
         }}
+        onChange={handleTableChange}
         scroll={{ x: 1100 }}
       />
 

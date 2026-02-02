@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { PlusIcon } from '@heroicons/react/24/outline';
-import { Table, Button, Select, Tag, useToast, type TableColumn } from '../components/ui';
+import { PlusOutlined } from '@ant-design/icons';
+import { App, Table, Button, Select, Tag, Tooltip } from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { transferService } from '../services/transferService';
 import { personnelService } from '../services/personnelService';
 import { laboratoryService } from '../services/laboratoryService';
@@ -53,7 +54,7 @@ export default function Transfers() {
   const errorShownRef = useRef(false);
   const isMountedRef = useRef(true);
   
-  const toast = useToast();
+  const { message } = App.useApp();
 
   const fetchBorrowRequests = useCallback(
     async (page = 1, pageSize = 10, status = '') => {
@@ -76,7 +77,7 @@ export default function Transfers() {
       } catch {
         if (isMountedRef.current && !errorShownRef.current) {
           errorShownRef.current = true;
-          toast.error('获取借调申请列表失败');
+          message.error('获取借调申请列表失败');
         }
       } finally {
         if (isMountedRef.current) {
@@ -84,7 +85,7 @@ export default function Transfers() {
         }
       }
     },
-    [toast]
+    [message]
   );
 
   const fetchReferenceData = useCallback(async () => {
@@ -112,14 +113,13 @@ export default function Transfers() {
     };
   }, [fetchBorrowRequests, fetchReferenceData]);
 
-  const handleTableChange = (page: number, pageSize: number) => {
-    fetchBorrowRequests(page, pageSize, statusFilter);
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
+    fetchBorrowRequests(paginationConfig.current || 1, paginationConfig.pageSize || 10, statusFilter);
   };
 
-  const handleStatusChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? String(value[0]) : String(value);
-    setStatusFilter(v);
-    fetchBorrowRequests(1, pagination.pageSize, v);
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value);
+    fetchBorrowRequests(1, pagination.pageSize, value);
   };
 
   const handleAdd = () => {
@@ -142,31 +142,31 @@ export default function Transfers() {
     fetchBorrowRequests(pagination.current, pagination.pageSize, statusFilter);
   };
 
-  const columns: TableColumn<BorrowRequest>[] = [
+  const columns: ColumnsType<BorrowRequest> = [
     {
       title: '人员',
       key: 'personnel',
       width: 150,
-      render: (_: unknown, record: BorrowRequest) =>
+      render: (_, record) =>
         record.personnel?.user?.full_name || record.personnel?.employee_id || '-',
     },
     {
       title: '工号',
       key: 'employee_id',
       width: 100,
-      render: (_: unknown, record: BorrowRequest) => record.personnel?.employee_id || '-',
+      render: (_, record) => record.personnel?.employee_id || '-',
     },
     {
       title: '调出实验室',
       key: 'from_laboratory',
       width: 150,
-      render: (_: unknown, record: BorrowRequest) => record.from_laboratory?.name || '-',
+      render: (_, record) => record.from_laboratory?.name || '-',
     },
     {
       title: '调入实验室',
       key: 'to_laboratory',
       width: 150,
-      render: (_: unknown, record: BorrowRequest) => record.to_laboratory?.name || '-',
+      render: (_, record) => record.to_laboratory?.name || '-',
     },
     {
       title: '开始日期',
@@ -185,9 +185,9 @@ export default function Transfers() {
       dataIndex: 'status',
       key: 'status',
       width: 100,
-      render: (status: unknown) => (
-        <Tag color={statusColors[status as BorrowRequestStatus]}>
-          {statusLabels[status as BorrowRequestStatus]}
+      render: (status: BorrowRequestStatus) => (
+        <Tag color={statusColors[status]}>
+          {statusLabels[status]}
         </Tag>
       ),
     },
@@ -196,28 +196,27 @@ export default function Transfers() {
       dataIndex: 'reason',
       key: 'reason',
       width: 200,
-      render: (text: unknown) => (text as string) || '-',
+      render: (text: string) => text || '-',
     },
     {
       title: '操作',
       key: 'action',
       width: 120,
-      render: (_: unknown, record: BorrowRequest) => {
+      render: (_, record) => {
         if (record.status === 'pending') {
           return (
-            <Button variant="link" size="small" onClick={() => handleApprove(record)}>
+            <Button type="link" size="small" onClick={() => handleApprove(record)}>
               审批
             </Button>
           );
         }
         if (record.status === 'rejected' && record.rejection_reason) {
           return (
-            <span
-              className="text-error-500 cursor-help text-xs"
-              title={record.rejection_reason}
-            >
-              查看原因
-            </span>
+            <Tooltip title={record.rejection_reason}>
+              <span style={{ color: '#ff4d4f', fontSize: 12, cursor: 'help' }}>
+                查看原因
+              </span>
+            </Tooltip>
           );
         }
         return '-';
@@ -227,15 +226,14 @@ export default function Transfers() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <Select
           value={statusFilter}
           onChange={handleStatusChange}
           options={statusOptions}
-          className="w-40"
+          style={{ width: 160 }}
         />
-        <Button variant="primary" onClick={handleAdd}>
-          <PlusIcon className="w-4 h-4 mr-1" />
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新建借调申请
         </Button>
       </div>
@@ -252,8 +250,8 @@ export default function Transfers() {
           showSizeChanger: true,
           showQuickJumper: true,
           showTotal: (total) => `共 ${total} 条`,
-          onChange: handleTableChange,
         }}
+        onChange={handleTableChange}
         scroll={{ x: 1300 }}
       />
 

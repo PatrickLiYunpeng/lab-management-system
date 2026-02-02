@@ -1,4 +1,4 @@
-import { Tag } from '../ui';
+import { Tag } from 'antd';
 
 interface StatusTagProps {
   isActive: boolean;

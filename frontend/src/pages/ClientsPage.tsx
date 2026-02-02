@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { PlusIcon, PencilIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { Table, Button, Input, Tag, Switch, useToast, type TableColumn, type TablePagination } from '../components/ui';
+import { SearchOutlined, PlusOutlined, EditOutlined } from '@ant-design/icons';
+import { Table, Button, Input, Tag, Switch, App, Space } from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { clientService } from '../services/clientService';
 import { isAbortError } from '../services/api';
 import { ClientModal } from '../components/clients/ClientModal';
@@ -26,7 +27,7 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [pagination, setPagination] = useState<TablePagination>({
+  const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
     total: 0,
@@ -35,7 +36,7 @@ export default function ClientsPage() {
   const [searchText, setSearchText] = useState('');
   const [showActiveOnly, setShowActiveOnly] = useState<boolean | undefined>(undefined);
   
-  const toast = useToast();
+  const { message } = App.useApp();
   // Ref to store abort controller for request cancellation
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -59,13 +60,13 @@ export default function ClientsPage() {
       } catch (err) {
         // Ignore abort errors
         if (!isAbortError(err)) {
-          toast.error('获取客户列表失败');
+          message.error('获取客户列表失败');
         }
       } finally {
         setLoading(false);
       }
     },
-    [searchText, showActiveOnly, toast]
+    [searchText, showActiveOnly, message]
   );
 
   // Clients fetch with AbortController for request cancellation
@@ -96,7 +97,7 @@ export default function ClientsPage() {
     return () => clearTimeout(timer);
   }, [searchValue, searchText]);
 
-  const handlePaginationChange = (page: number, pageSize: number) => {
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
     // Abort previous request if any
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -105,7 +106,7 @@ export default function ClientsPage() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
     
-    fetchClients(page, pageSize, controller.signal);
+    fetchClients(paginationConfig.current, paginationConfig.pageSize, controller.signal);
   };
 
   const handleAdd = () => {
@@ -133,7 +134,7 @@ export default function ClientsPage() {
     setShowActiveOnly(checked ? true : undefined);
   };
 
-  const columns: TableColumn<Client>[] = [
+  const columns: ColumnsType<Client> = [
     {
       title: '客户名称',
       dataIndex: 'name',
@@ -199,7 +200,7 @@ export default function ClientsPage() {
       key: 'action',
       width: 100,
       render: (_, record) => (
-        <Button variant="link" size="small" icon={<PencilIcon className="w-4 h-4" />} onClick={() => handleEdit(record)}>
+        <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
           编辑
         </Button>
       ),
@@ -208,22 +209,22 @@ export default function ClientsPage() {
 
   return (
     <div>
-      <div className="mb-4 flex justify-between">
-        <div className="flex items-center gap-4 flex-wrap">
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+        <Space wrap>
           <Input
             placeholder="搜索客户名称或代码"
-            prefix={<MagnifyingGlassIcon className="w-4 h-4" />}
+            prefix={<SearchOutlined />}
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            className="w-[220px]"
+            style={{ width: 220 }}
             allowClear
           />
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-neutral-600">仅启用:</span>
+          <Space>
+            <span style={{ fontSize: 14, color: '#666' }}>仅启用:</span>
             <Switch checked={showActiveOnly === true} onChange={handleActiveFilterChange} size="small" />
-          </div>
-        </div>
-        <Button variant="primary" icon={<PlusIcon className="w-4 h-4" />} onClick={handleAdd}>
+          </Space>
+        </Space>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新增客户
         </Button>
       </div>
@@ -238,8 +239,8 @@ export default function ClientsPage() {
           showSizeChanger: true,
           showQuickJumper: true,
           showTotal: (total) => `共 ${total} 条`,
-          onChange: handlePaginationChange,
         }}
+        onChange={handleTableChange}
         scroll={{ x: 1100 }}
       />
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Input, Select, Switch, useToast, useForm, Form, FormItem, type FormInstance } from '../ui';
+import { Modal, Input, Select, Switch, Form, App } from 'antd';
 import { userService, type UserFormData, type UserUpdateData } from '../../services/userService';
 import { siteService } from '../../services/siteService';
 import { laboratoryService } from '../../services/laboratoryService';
@@ -33,36 +33,12 @@ interface UserFormValues {
 }
 
 export function UserModal({ visible, user, onSuccess, onCancel }: UserModalProps) {
-  const [form] = useForm<UserFormValues>({
-    initialValues: {
-      username: '',
-      email: '',
-      password: '',
-      full_name: '',
-      role: UserRole.VIEWER,
-      primary_site_id: undefined,
-      primary_laboratory_id: undefined,
-      is_active: true,
-    },
-    rules: {
-      username: [
-        { required: true, message: '请输入用户名' },
-        { min: 3, message: '用户名至少3个字符' },
-        { max: 50, message: '用户名最多50个字符' },
-      ],
-      email: [
-        { required: true, message: '请输入邮箱' },
-        { type: 'email', message: '请输入有效的邮箱地址' },
-      ],
-      password: [],
-      role: [{ required: true, message: '请选择角色' }],
-    },
-  });
+  const [form] = Form.useForm<UserFormValues>();
   const [loading, setLoading] = useState(false);
   const [sites, setSites] = useState<Site[]>([]);
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<number | undefined>();
-  const toast = useToast();
+  const { message } = App.useApp();
 
   const isEditing = !!user;
 
@@ -71,7 +47,7 @@ export function UserModal({ visible, user, onSuccess, onCancel }: UserModalProps
       const response = await siteService.getSites({ page_size: 100 });
       setSites(response.items);
     } catch {
-      toast.error('获取站点列表失败');
+      message.error('获取站点列表失败');
     }
   };
 
@@ -83,7 +59,7 @@ export function UserModal({ visible, user, onSuccess, onCancel }: UserModalProps
       });
       setLaboratories(response.items);
     } catch {
-      toast.error('获取实验室列表失败');
+      message.error('获取实验室列表失败');
     }
   };
 
@@ -115,12 +91,11 @@ export function UserModal({ visible, user, onSuccess, onCancel }: UserModalProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, user]);
 
-  const handleSiteChange = (value: string | number | (string | number)[]) => {
-    const siteId = Array.isArray(value) ? value[0] as number : value as number;
-    setSelectedSiteId(siteId);
+  const handleSiteChange = (value: number) => {
+    setSelectedSiteId(value);
     form.setFieldValue('primary_laboratory_id', undefined);
-    if (siteId) {
-      loadLaboratories(siteId);
+    if (value) {
+      loadLaboratories(value);
     } else {
       setLaboratories([]);
     }
@@ -142,10 +117,10 @@ export function UserModal({ visible, user, onSuccess, onCancel }: UserModalProps
           is_active: values.is_active,
         };
         await userService.updateUser(user.id, updateData);
-        toast.success('用户更新成功');
+        message.success('用户更新成功');
       } else {
         if (!values.password || values.password.length < 8) {
-          toast.error('密码至少8个字符');
+          message.error('密码至少8个字符');
           setLoading(false);
           return;
         }
@@ -159,7 +134,7 @@ export function UserModal({ visible, user, onSuccess, onCancel }: UserModalProps
           primary_laboratory_id: values.primary_laboratory_id || undefined,
         };
         await userService.createUser(createData);
-        toast.success('用户创建成功');
+        message.success('用户创建成功');
       }
 
       onSuccess();
@@ -168,7 +143,7 @@ export function UserModal({ visible, user, onSuccess, onCancel }: UserModalProps
         return;
       }
       const msg = error instanceof Error ? error.message : '操作失败';
-      toast.error(msg);
+      message.error(msg);
     } finally {
       setLoading(false);
     }
@@ -186,30 +161,52 @@ export function UserModal({ visible, user, onSuccess, onCancel }: UserModalProps
       width={600}
       destroyOnClose
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
-        <FormItem name="username" label="用户名">
+      <Form form={form} layout="vertical">
+        <Form.Item
+          name="username"
+          label="用户名"
+          rules={[
+            { required: true, message: '请输入用户名' },
+            { min: 3, message: '用户名至少3个字符' },
+            { max: 50, message: '用户名最多50个字符' },
+          ]}
+        >
           <Input placeholder="请输入用户名" />
-        </FormItem>
+        </Form.Item>
 
-        <FormItem name="email" label="邮箱">
+        <Form.Item
+          name="email"
+          label="邮箱"
+          rules={[
+            { required: true, message: '请输入邮箱' },
+            { type: 'email', message: '请输入有效的邮箱地址' },
+          ]}
+        >
           <Input placeholder="请输入邮箱" />
-        </FormItem>
+        </Form.Item>
 
         {!isEditing && (
-          <FormItem name="password" label="密码" required>
-            <Input type="password" placeholder="请输入密码（至少8个字符）" />
-          </FormItem>
+          <Form.Item
+            name="password"
+            label="密码"
+            rules={[
+              { required: true, message: '请输入密码' },
+              { min: 8, message: '密码至少8个字符' },
+            ]}
+          >
+            <Input.Password placeholder="请输入密码（至少8个字符）" />
+          </Form.Item>
         )}
 
-        <FormItem name="full_name" label="姓名">
+        <Form.Item name="full_name" label="姓名">
           <Input placeholder="请输入姓名" />
-        </FormItem>
+        </Form.Item>
 
-        <FormItem name="role" label="角色">
+        <Form.Item name="role" label="角色" rules={[{ required: true, message: '请选择角色' }]}>
           <Select placeholder="请选择角色" options={roleOptions} />
-        </FormItem>
+        </Form.Item>
 
-        <FormItem name="primary_site_id" label="所属站点">
+        <Form.Item name="primary_site_id" label="所属站点">
           <Select
             placeholder="请选择站点"
             allowClear
@@ -219,9 +216,9 @@ export function UserModal({ visible, user, onSuccess, onCancel }: UserModalProps
               label: site.name,
             }))}
           />
-        </FormItem>
+        </Form.Item>
 
-        <FormItem name="primary_laboratory_id" label="所属实验室">
+        <Form.Item name="primary_laboratory_id" label="所属实验室">
           <Select
             placeholder={selectedSiteId ? '请选择实验室' : '请先选择站点'}
             allowClear
@@ -231,12 +228,12 @@ export function UserModal({ visible, user, onSuccess, onCancel }: UserModalProps
               label: lab.name,
             }))}
           />
-        </FormItem>
+        </Form.Item>
 
         {isEditing && (
-          <FormItem name="is_active" label="账户状态" valuePropName="checked">
-            <Switch />
-          </FormItem>
+          <Form.Item name="is_active" label="账户状态" valuePropName="checked">
+            <Switch checkedChildren="启用" unCheckedChildren="停用" />
+          </Form.Item>
         )}
       </Form>
     </Modal>

@@ -91,7 +91,10 @@ def list_users(
             "primary_laboratory_id": user.primary_laboratory_id,
             "primary_site_id": user.primary_site_id,
             "is_active": user.is_active,
+            "is_superuser": user.is_superuser,
             "created_at": user.created_at,
+            "updated_at": user.updated_at,
+            "last_login": user.last_login,
         }
         items.append(UserResponse(**user_dict))
     

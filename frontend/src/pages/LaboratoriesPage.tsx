@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { Table, Button, Input, Select, Popconfirm, useToast, type TableColumn, type TablePagination } from '../components/ui';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
+import { Table, Button, Input, Select, Popconfirm, Space, App } from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { laboratoryService } from '../services/laboratoryService';
 import { siteService } from '../services/siteService';
 import { isAbortError } from '../services/api';
@@ -20,7 +21,7 @@ export default function LaboratoriesPage() {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingLab, setEditingLab] = useState<Laboratory | null>(null);
-  const [pagination, setPagination] = useState<TablePagination>({
+  const [pagination, setPagination] = useState<TablePaginationConfig>({
     current: 1,
     pageSize: 10,
     total: 0,
@@ -34,7 +35,7 @@ export default function LaboratoriesPage() {
   });
   const [searchValue, setSearchValue] = useState('');
   
-  const toast = useToast();
+  const { message } = App.useApp();
   // Ref to store abort controller for request cancellation
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -59,13 +60,13 @@ export default function LaboratoriesPage() {
       } catch (err) {
         // Ignore abort errors
         if (!isAbortError(err)) {
-          toast.error('获取实验室列表失败');
+          message.error('获取实验室列表失败');
         }
       } finally {
         setLoading(false);
       }
     },
-    [filters, toast]
+    [filters, message]
   );
 
   const fetchSites = useCallback(async () => {
@@ -95,7 +96,7 @@ export default function LaboratoriesPage() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
     
-    fetchLaboratories(pagination.current, pagination.pageSize, controller.signal);
+    fetchLaboratories(pagination.current as number, pagination.pageSize as number, controller.signal);
     
     return () => {
       controller.abort();
@@ -113,7 +114,7 @@ export default function LaboratoriesPage() {
     return () => clearTimeout(timer);
   }, [searchValue, filters.search]);
 
-  const handlePaginationChange = (page: number, pageSize: number) => {
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
     // Abort previous request if any
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -122,17 +123,7 @@ export default function LaboratoriesPage() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
     
-    fetchLaboratories(page, pageSize, controller.signal);
-  };
-
-  const handleSiteFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, site_id: v as number | undefined }));
-  };
-
-  const handleTypeFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, lab_type: v as LaboratoryType | undefined }));
+    fetchLaboratories(paginationConfig.current, paginationConfig.pageSize, controller.signal);
   };
 
   const handleAdd = () => {
@@ -148,17 +139,17 @@ export default function LaboratoriesPage() {
   const handleDelete = async (id: number) => {
     try {
       await laboratoryService.deleteLaboratory(id);
-      toast.success('删除成功');
-      fetchLaboratories(pagination.current, pagination.pageSize);
+      message.success('删除成功');
+      fetchLaboratories(pagination.current as number, pagination.pageSize as number);
     } catch {
-      toast.error('删除失败');
+      message.error('删除失败');
     }
   };
 
   const handleModalSuccess = () => {
     setModalVisible(false);
     setEditingLab(null);
-    fetchLaboratories(pagination.current, pagination.pageSize);
+    fetchLaboratories(pagination.current as number, pagination.pageSize as number);
   };
 
   const handleModalCancel = () => {
@@ -171,7 +162,7 @@ export default function LaboratoriesPage() {
     return site?.name || '-';
   };
 
-  const columns: TableColumn<Laboratory>[] = [
+  const columns: ColumnsType<Laboratory> = [
     {
       title: '实验室名称',
       dataIndex: 'name',
@@ -189,46 +180,46 @@ export default function LaboratoriesPage() {
       dataIndex: 'lab_type',
       key: 'lab_type',
       width: 130,
-      render: (value) => labTypeLabels[value as LaboratoryType] || (value as string),
+      render: (value) => labTypeLabels[value as LaboratoryType] || value,
     },
     {
       title: '所属站点',
       dataIndex: 'site_id',
       key: 'site_id',
       width: 150,
-      render: (value, record) => record.site?.name || getSiteName(value as number),
+      render: (value, record) => record.site?.name || getSiteName(value),
     },
     {
       title: '容量',
       dataIndex: 'max_capacity',
       key: 'max_capacity',
       width: 80,
-      render: (value) => (value as number) || '-',
+      render: (value) => value || '-',
     },
     {
       title: '负责人',
       dataIndex: 'manager_name',
       key: 'manager_name',
       width: 100,
-      render: (value) => (value as string) || '-',
+      render: (value) => value || '-',
     },
     {
       title: '状态',
       dataIndex: 'is_active',
       key: 'is_active',
       width: 80,
-      render: (value) => <StatusTag isActive={value as boolean} />,
+      render: (value) => <StatusTag isActive={value} />,
     },
     {
       title: '操作',
       key: 'action',
       width: 150,
       render: (_, record) => (
-        <div className="flex items-center gap-2">
+        <Space>
           <Button
-            variant="link"
+            type="link"
             size="small"
-            icon={<PencilIcon className="w-4 h-4" />}
+            icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
           >
             编辑
@@ -239,35 +230,36 @@ export default function LaboratoriesPage() {
             onConfirm={() => handleDelete(record.id)}
             okText="确定"
             cancelText="取消"
-            okDanger
+            okButtonProps={{ danger: true }}
           >
-            <Button variant="link" size="small" danger icon={<TrashIcon className="w-4 h-4" />}>
+            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
               删除
             </Button>
           </Popconfirm>
-        </div>
+        </Space>
       ),
     },
   ];
 
   return (
     <div>
-      <div className="mb-4 flex justify-between">
-        <div className="flex items-center gap-4">
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+        <Space>
           <Input
             placeholder="搜索实验室名称或代码"
-            prefix={<MagnifyingGlassIcon className="w-4 h-4" />}
+            prefix={<SearchOutlined />}
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            className="w-[250px]"
+            style={{ width: 250 }}
             allowClear
           />
           <Select
             placeholder="所属站点"
             value={filters.site_id}
-            onChange={handleSiteFilterChange}
-            className="w-[180px]"
+            onChange={(value) => setFilters((prev) => ({ ...prev, site_id: value }))}
+            style={{ width: 180 }}
             allowClear
+            loading={sitesLoading}
             options={sites.map((site) => ({
               label: site.name,
               value: site.id,
@@ -276,16 +268,16 @@ export default function LaboratoriesPage() {
           <Select
             placeholder="实验室类型"
             value={filters.lab_type}
-            onChange={handleTypeFilterChange}
-            className="w-[150px]"
+            onChange={(value) => setFilters((prev) => ({ ...prev, lab_type: value }))}
+            style={{ width: 150 }}
             allowClear
             options={[
               { label: 'FA (失效分析)', value: 'fa' },
               { label: '可靠性测试', value: 'reliability' },
             ]}
           />
-        </div>
-        <Button variant="primary" icon={<PlusIcon className="w-4 h-4" />} onClick={handleAdd}>
+        </Space>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新增实验室
         </Button>
       </div>
@@ -300,8 +292,8 @@ export default function LaboratoriesPage() {
           showSizeChanger: true,
           showQuickJumper: true,
           showTotal: (total) => `共 ${total} 条`,
-          onChange: handlePaginationChange,
         }}
+        onChange={handleTableChange}
       />
 
       <LaboratoryModal

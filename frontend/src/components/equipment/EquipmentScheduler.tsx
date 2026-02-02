@@ -1,15 +1,15 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
-  ArrowPathIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-} from '@heroicons/react/24/outline';
+  ReloadOutlined,
+  LeftOutlined,
+  RightOutlined,
+} from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
+import { Button, Select, Spin, Tag, Tooltip, DatePicker, App } from 'antd';
 import { equipmentService } from '../../services/equipmentService';
 import { laboratoryService } from '../../services/laboratoryService';
 import type { EquipmentGanttItem, EquipmentSchedule } from '../../services/equipmentService';
 import type { Laboratory } from '../../types';
-import { Button, Select, Spin, Tag, Tooltip, DatePicker, useToast } from '../ui';
 
 const statusColors: Record<string, string> = {
   scheduled: '#3b82f6',
@@ -35,7 +35,7 @@ interface EquipmentSchedulerProps {
 }
 
 export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedulerProps) {
-  const toast = useToast();
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
   const [equipment, setEquipment] = useState<EquipmentGanttItem[]>([]);
@@ -81,11 +81,11 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
       });
       setEquipment(data.equipment);
     } catch {
-      toast.error('获取设备排程数据失败');
+      message.error('获取设备排程数据失败');
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, laboratoryId, toast]);
+  }, [startDate, endDate, laboratoryId, message]);
 
   useEffect(() => {
     fetchLaboratories();
@@ -110,9 +110,8 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
     setEndDate(dayjs().add(7, 'day').endOf('day'));
   };
 
-  const handleLabChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setLaboratoryId(v ? Number(v) : undefined);
+  const handleLabChange = (value: number | undefined) => {
+    setLaboratoryId(value);
   };
 
   // Calculate position and width for a schedule bar
@@ -146,13 +145,12 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
   };
 
   return (
-    <div className="bg-white rounded-lg border border-neutral-200 shadow-sm">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-neutral-50">
-        <span className="font-medium text-neutral-900">设备排程甘特图</span>
+    <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e5e5', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #e5e5e5', background: '#fafafa' }}>
+        <span style={{ fontWeight: 500, color: '#171717' }}>设备排程甘特图</span>
         <Button
-          variant="default"
           size="small"
-          icon={<ArrowPathIcon className="w-4 h-4" />}
+          icon={<ReloadOutlined />}
           onClick={fetchGanttData}
           loading={loading}
         >
@@ -160,83 +158,87 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
         </Button>
       </div>
 
-      <div className="p-4">
+      <div style={{ padding: 16 }}>
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-4 mb-4">
-          <div className="w-48">
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+          <div style={{ width: 192 }}>
             <Select
               placeholder="选择实验室"
               value={laboratoryId}
               onChange={handleLabChange}
               allowClear
+              style={{ width: '100%' }}
               options={laboratories.map((lab) => ({
                 label: lab.name,
                 value: lab.id,
               }))}
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <DatePicker
               value={startDate}
               onChange={(date) => date && setStartDate(date)}
               placeholder="开始日期"
             />
-            <span className="text-neutral-400">-</span>
+            <span style={{ color: '#a3a3a3' }}>-</span>
             <DatePicker
               value={endDate}
               onChange={(date) => date && setEndDate(date)}
               placeholder="结束日期"
             />
           </div>
-          <div className="flex items-center gap-1">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <Button
-              variant="default"
               size="small"
-              icon={<ChevronLeftIcon className="w-4 h-4" />}
+              icon={<LeftOutlined />}
               onClick={handlePrevWeek}
             />
-            <Button variant="default" size="small" onClick={handleToday}>
+            <Button size="small" onClick={handleToday}>
               今天
             </Button>
             <Button
-              variant="default"
               size="small"
-              icon={<ChevronRightIcon className="w-4 h-4" />}
+              icon={<RightOutlined />}
               onClick={handleNextWeek}
             />
           </div>
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-12">
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
             <Spin size="large" />
           </div>
         ) : equipment.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-neutral-400">
-            <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', color: '#a3a3a3' }}>
+            <svg style={{ width: 48, height: 48, marginBottom: 8 }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
             </svg>
             <span>暂无设备数据</span>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div style={{ overflowX: 'auto' }}>
             {/* Gantt Chart Container */}
-            <div className="min-w-[800px]">
+            <div style={{ minWidth: 800 }}>
               {/* Header - Time slots */}
-              <div className="flex border-b border-neutral-200">
-                <div className="w-48 min-w-[12rem] px-3 py-2 font-medium text-neutral-700 bg-neutral-50 border-r border-neutral-200">
+              <div style={{ display: 'flex', borderBottom: '1px solid #e5e5e5' }}>
+                <div style={{ width: 192, minWidth: 192, padding: '8px 12px', fontWeight: 500, color: '#404040', background: '#fafafa', borderRight: '1px solid #e5e5e5' }}>
                   设备
                 </div>
-                <div className="flex-1 flex">
+                <div style={{ flex: 1, display: 'flex' }}>
                   {timeSlots.map((slot, idx) => (
                     <div
                       key={idx}
-                      className={`flex-1 text-center px-1 py-2 text-xs border-r border-neutral-100 ${
-                        slot.date.isSame(dayjs(), 'day') ? 'bg-primary-50' : 'bg-neutral-50'
-                      }`}
+                      style={{
+                        flex: 1,
+                        textAlign: 'center',
+                        padding: '8px 4px',
+                        fontSize: 12,
+                        borderRight: '1px solid #f5f5f5',
+                        background: slot.date.isSame(dayjs(), 'day') ? '#f0f5ff' : '#fafafa',
+                      }}
                     >
                       {slot.label}
-                      <div className="text-[10px] text-neutral-400">
+                      <div style={{ fontSize: 10, color: '#a3a3a3' }}>
                         {slot.date.format('ddd')}
                       </div>
                     </div>
@@ -248,26 +250,28 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
               {equipment.map((eq) => (
                 <div
                   key={eq.id}
-                  className="flex border-b border-neutral-100 min-h-[50px]"
+                  style={{ display: 'flex', borderBottom: '1px solid #f5f5f5', minHeight: 50 }}
                 >
                   {/* Equipment name */}
-                  <div className="w-48 min-w-[12rem] px-3 py-2 border-r border-neutral-100 flex flex-col justify-center">
-                    <div className="font-medium text-neutral-900 text-sm">{eq.name}</div>
-                    <div className="text-[11px] text-neutral-500">
+                  <div style={{ width: 192, minWidth: 192, padding: '8px 12px', borderRight: '1px solid #f5f5f5', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <div style={{ fontWeight: 500, color: '#171717', fontSize: 14 }}>{eq.name}</div>
+                    <div style={{ fontSize: 11, color: '#737373' }}>
                       {eq.code} · {equipmentTypeLabels[eq.equipment_type] || eq.equipment_type}
                     </div>
                   </div>
 
                   {/* Schedule bars */}
-                  <div className="flex-1 relative bg-white">
+                  <div style={{ flex: 1, position: 'relative', background: '#fff' }}>
                     {/* Grid lines */}
-                    <div className="absolute inset-0 flex">
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
                       {timeSlots.map((slot, idx) => (
                         <div
                           key={idx}
-                          className={`flex-1 border-r border-neutral-50 ${
-                            slot.date.isSame(dayjs(), 'day') ? 'bg-neutral-50/50' : ''
-                          }`}
+                          style={{
+                            flex: 1,
+                            borderRight: '1px solid #fafafa',
+                            background: slot.date.isSame(dayjs(), 'day') ? 'rgba(250,250,250,0.5)' : undefined,
+                          }}
                         />
                       ))}
                     </div>
@@ -276,8 +280,24 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
                     {eq.schedules.map((schedule) => (
                       <Tooltip key={schedule.id} title={getScheduleTooltipContent(schedule)}>
                         <div
-                          className="absolute top-2 h-[calc(100%-16px)] min-h-[24px] rounded cursor-pointer flex items-center px-2 text-white text-[11px] overflow-hidden text-ellipsis whitespace-nowrap shadow-sm"
-                          style={getScheduleStyle(schedule)}
+                          style={{
+                            position: 'absolute',
+                            top: 8,
+                            height: 'calc(100% - 16px)',
+                            minHeight: 24,
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '0 8px',
+                            color: '#fff',
+                            fontSize: 11,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                            ...getScheduleStyle(schedule),
+                          }}
                         >
                           {schedule.title || `#${schedule.task_id || schedule.id}`}
                         </div>
@@ -286,7 +306,7 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
 
                     {/* Empty state indicator */}
                     {eq.schedules.length === 0 && (
-                      <div className="absolute inset-0 flex items-center justify-center text-neutral-300 text-xs">
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d4d4d4', fontSize: 12 }}>
                         无排程
                       </div>
                     )}
@@ -296,8 +316,8 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
             </div>
 
             {/* Legend */}
-            <div className="flex items-center justify-end gap-4 mt-4">
-              <span className="text-xs text-neutral-500">状态:</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16, marginTop: 16 }}>
+              <span style={{ fontSize: 12, color: '#737373' }}>状态:</span>
               {Object.entries(statusLabels).map(([status, label]) => (
                 <Tag
                   key={status}

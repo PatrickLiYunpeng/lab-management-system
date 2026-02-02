@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { Table, Button, Input, Select, Tag, Popconfirm, useToast, type TableColumn, type TablePagination } from '../components/ui';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
+import { Table, Button, Input, Select, Tag, Popconfirm, App, Space } from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { personnelService } from '../services/personnelService';
 import { siteService } from '../services/siteService';
 import { laboratoryService } from '../services/laboratoryService';
@@ -23,7 +24,7 @@ export default function PersonnelPage() {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingPersonnel, setEditingPersonnel] = useState<Personnel | null>(null);
-  const [pagination, setPagination] = useState<TablePagination>({
+  const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
     total: 0,
@@ -38,7 +39,7 @@ export default function PersonnelPage() {
   });
   const [searchValue, setSearchValue] = useState('');
   
-  const toast = useToast();
+  const { message } = App.useApp();
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchPersonnel = useCallback(
@@ -62,13 +63,13 @@ export default function PersonnelPage() {
         });
       } catch (err) {
         if (!isAbortError(err)) {
-          toast.error('获取人员列表失败');
+          message.error('获取人员列表失败');
         }
       } finally {
         setLoading(false);
       }
     },
-    [filters, toast]
+    [filters, message]
   );
 
   const fetchSites = useCallback(async () => {
@@ -118,23 +119,20 @@ export default function PersonnelPage() {
     return () => clearTimeout(timer);
   }, [searchValue, filters.search]);
 
-  const handlePaginationChange = (page: number, pageSize: number) => {
-    fetchPersonnel(page, pageSize);
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
+    fetchPersonnel(paginationConfig.current, paginationConfig.pageSize);
   };
 
-  const handleSiteFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, site_id: v as number | undefined, laboratory_id: undefined }));
+  const handleSiteFilterChange = (value: number | undefined) => {
+    setFilters((prev) => ({ ...prev, site_id: value, laboratory_id: undefined }));
   };
 
-  const handleLabFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, laboratory_id: v as number | undefined }));
+  const handleLabFilterChange = (value: number | undefined) => {
+    setFilters((prev) => ({ ...prev, laboratory_id: value }));
   };
 
-  const handleStatusFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, status: v as PersonnelStatus | undefined }));
+  const handleStatusFilterChange = (value: PersonnelStatus | undefined) => {
+    setFilters((prev) => ({ ...prev, status: value }));
   };
 
   const handleAdd = () => {
@@ -150,10 +148,10 @@ export default function PersonnelPage() {
   const handleDelete = async (id: number) => {
     try {
       await personnelService.deletePersonnel(id);
-      toast.success('删除成功');
+      message.success('删除成功');
       fetchPersonnel(pagination.current, pagination.pageSize);
     } catch {
-      toast.error('删除失败');
+      message.error('删除失败');
     }
   };
 
@@ -182,7 +180,7 @@ export default function PersonnelPage() {
     ? laboratories.filter((lab) => lab.site_id === filters.site_id)
     : laboratories;
 
-  const columns: TableColumn<Personnel>[] = [
+  const columns: ColumnsType<Personnel> = [
     {
       title: '员工编号',
       dataIndex: 'employee_id',
@@ -241,11 +239,11 @@ export default function PersonnelPage() {
       key: 'action',
       width: 150,
       render: (_, record) => (
-        <div className="flex items-center gap-2">
+        <Space>
           <Button
-            variant="link"
+            type="link"
             size="small"
-            icon={<PencilIcon className="w-4 h-4" />}
+            icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
           >
             编辑
@@ -256,34 +254,34 @@ export default function PersonnelPage() {
             onConfirm={() => handleDelete(record.id)}
             okText="确定"
             cancelText="取消"
-            okDanger
+            okButtonProps={{ danger: true }}
           >
-            <Button variant="link" size="small" danger icon={<TrashIcon className="w-4 h-4" />}>
+            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
               删除
             </Button>
           </Popconfirm>
-        </div>
+        </Space>
       ),
     },
   ];
 
   return (
     <div>
-      <div className="mb-4 flex justify-between">
-        <div className="flex items-center gap-4 flex-wrap">
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+        <Space wrap>
           <Input
             placeholder="搜索员工编号或职位"
-            prefix={<MagnifyingGlassIcon className="w-4 h-4" />}
+            prefix={<SearchOutlined />}
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            className="w-[200px]"
+            style={{ width: 200 }}
             allowClear
           />
           <Select
             placeholder="站点"
             value={filters.site_id}
             onChange={handleSiteFilterChange}
-            className="w-[150px]"
+            style={{ width: 150 }}
             allowClear
             options={sites.map((site) => ({
               label: `${site.name} (${site.code})`,
@@ -294,7 +292,7 @@ export default function PersonnelPage() {
             placeholder="实验室"
             value={filters.laboratory_id}
             onChange={handleLabFilterChange}
-            className="w-[180px]"
+            style={{ width: 180 }}
             allowClear
             options={filteredLaboratories.map((lab) => ({
               label: `${lab.name} (${lab.code})`,
@@ -305,15 +303,15 @@ export default function PersonnelPage() {
             placeholder="状态"
             value={filters.status}
             onChange={handleStatusFilterChange}
-            className="w-[120px]"
+            style={{ width: 120 }}
             allowClear
             options={Object.entries(statusLabels).map(([value, config]) => ({
               label: config.text,
               value,
             }))}
           />
-        </div>
-        <Button variant="primary" icon={<PlusIcon className="w-4 h-4" />} onClick={handleAdd}>
+        </Space>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新增人员
         </Button>
       </div>
@@ -328,8 +326,8 @@ export default function PersonnelPage() {
           showSizeChanger: true,
           showQuickJumper: true,
           showTotal: (total) => `共 ${total} 条`,
-          onChange: handlePaginationChange,
         }}
+        onChange={handleTableChange}
         scroll={{ x: 1200 }}
       />
 

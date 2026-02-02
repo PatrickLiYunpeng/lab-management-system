@@ -1,5 +1,5 @@
-import { ShieldCheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { Tag, Tooltip } from '../ui';
+import { SafetyCertificateOutlined, WarningOutlined } from '@ant-design/icons';
+import { Tag, Tooltip } from 'antd';
 import type { PersonnelSkill, ProficiencyLevel } from '../../types';
 
 interface SkillBadgeProps {
@@ -44,8 +44,8 @@ export function SkillBadge({ personnelSkill, compact = false }: SkillBadgeProps)
   const isExpiring = isCertificationExpiring(certification_expiry);
 
   const tooltipContent = (
-    <div className="text-sm">
-      <div className="font-semibold">{skill.name}</div>
+    <div style={{ fontSize: 14 }}>
+      <div style={{ fontWeight: 600 }}>{skill.name}</div>
       <div>代码: {skill.code}</div>
       <div>熟练度: {proficiencyLabels[proficiency_level]}</div>
       {is_certified && (
@@ -53,11 +53,11 @@ export function SkillBadge({ personnelSkill, compact = false }: SkillBadgeProps)
           <div>
             认证状态:{' '}
             {isExpired ? (
-              <span className="text-error-500">已过期</span>
+              <span style={{ color: '#ff4d4f' }}>已过期</span>
             ) : isExpiring ? (
-              <span className="text-warning-500">即将过期</span>
+              <span style={{ color: '#faad14' }}>即将过期</span>
             ) : (
-              <span className="text-success-500">有效</span>
+              <span style={{ color: '#52c41a' }}>有效</span>
             )}
           </div>
           {certification_expiry && <div>有效期至: {certification_expiry}</div>}
@@ -73,13 +73,13 @@ export function SkillBadge({ personnelSkill, compact = false }: SkillBadgeProps)
     return (
       <Tooltip title={tooltipContent}>
         <span>
-          <Tag color={tagColor} className="mb-1 cursor-pointer">
-            <span className="flex items-center gap-1">
+          <Tag color={tagColor} style={{ marginBottom: 4, cursor: 'pointer' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               {skill.code}
               {is_certified && !isExpired && (
-                <ShieldCheckIcon className="w-3 h-3" />
+                <SafetyCertificateOutlined style={{ fontSize: 12 }} />
               )}
-              {isExpired && <ExclamationTriangleIcon className="w-3 h-3" />}
+              {isExpired && <WarningOutlined style={{ fontSize: 12 }} />}
             </span>
           </Tag>
         </span>
@@ -90,17 +90,17 @@ export function SkillBadge({ personnelSkill, compact = false }: SkillBadgeProps)
   return (
     <Tooltip title={tooltipContent}>
       <span>
-        <Tag color={tagColor} className="mb-1 cursor-pointer">
-          <span className="flex items-center gap-1">
+        <Tag color={tagColor} style={{ marginBottom: 4, cursor: 'pointer' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             {skill.name}
-            <span className="opacity-70">({proficiencyLabels[proficiency_level]})</span>
+            <span style={{ opacity: 0.7 }}>({proficiencyLabels[proficiency_level]})</span>
             {is_certified && !isExpired && (
-              <ShieldCheckIcon className="w-3 h-3 text-success-500" />
+              <SafetyCertificateOutlined style={{ fontSize: 12, color: '#52c41a' }} />
             )}
             {isExpiring && !isExpired && (
-              <ExclamationTriangleIcon className="w-3 h-3 text-warning-500" />
+              <WarningOutlined style={{ fontSize: 12, color: '#faad14' }} />
             )}
-            {isExpired && <ExclamationTriangleIcon className="w-3 h-3" />}
+            {isExpired && <WarningOutlined style={{ fontSize: 12 }} />}
           </span>
         </Tag>
       </span>

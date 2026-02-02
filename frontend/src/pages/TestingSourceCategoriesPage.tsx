@@ -1,11 +1,14 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon,
-} from '@heroicons/react/24/outline';
-import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
-import { Table, Button, Input, Popconfirm, Tag, Modal, InputNumber, Switch, useToast, useForm, Form, FormItem, TextArea, type TableColumn, type FormInstance } from '../components/ui';
+  PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined,
+} from '@ant-design/icons';
+import { StarFilled } from '@ant-design/icons';
+import { App, Table, Button, Input, Popconfirm, Tag, Modal, InputNumber, Switch, Form, Row, Col } from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { clientSlaService } from '../services/clientSlaService';
 import type { TestingSourceCategory, TestingSourceCategoryFormData } from '../types';
+
+const { TextArea } = Input;
 
 interface CategoryFormValues {
   name: string;
@@ -27,26 +30,11 @@ export default function TestingSourceCategoriesPage() {
   const [searchValue, setSearchValue] = useState('');
   const [searchText, setSearchText] = useState('');
   
-  const [form] = useForm<CategoryFormValues>({
-    initialValues: {
-      name: '',
-      code: '',
-      priority_weight: 10,
-      display_order: 0,
-      description: '',
-      color: '#1890ff',
-      is_active: true,
-      is_default: false,
-    },
-    rules: {
-      name: [{ required: true, message: '请输入名称' }],
-      code: [{ required: true, message: '请输入代码' }],
-    },
-  });
+  const [form] = Form.useForm<CategoryFormValues>();
 
   const errorShownRef = useRef(false);
   const isMountedRef = useRef(true);
-  const toast = useToast();
+  const { message } = App.useApp();
 
   const fetchCategories = useCallback(async (page = 1, pageSize = 50) => {
     setLoading(true);
@@ -64,12 +52,12 @@ export default function TestingSourceCategoriesPage() {
     } catch {
       if (isMountedRef.current && !errorShownRef.current) {
         errorShownRef.current = true;
-        toast.error('获取来源类别列表失败');
+        message.error('获取来源类别列表失败');
       }
     } finally {
       if (isMountedRef.current) setLoading(false);
     }
-  }, [searchText, toast]);
+  }, [searchText, message]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -90,8 +78,8 @@ export default function TestingSourceCategoriesPage() {
     return () => clearTimeout(timer);
   }, [searchValue, searchText]);
 
-  const handleTableChange = (page: number, pageSize: number) => {
-    fetchCategories(page, pageSize);
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
+    fetchCategories(paginationConfig.current || 1, paginationConfig.pageSize || 50);
   };
 
   const handleAdd = () => {
@@ -119,13 +107,13 @@ export default function TestingSourceCategoriesPage() {
   const handleDelete = async (id: number) => {
     try {
       await clientSlaService.deleteSourceCategory(id);
-      toast.success('删除成功');
+      message.success('删除成功');
       fetchCategories(pagination.current, pagination.pageSize);
     } catch (error: unknown) {
       const errorMsg = error && typeof error === 'object' && 'response' in error 
         ? (error as { response?: { data?: { detail?: string } } }).response?.data?.detail 
         : '删除失败';
-      toast.error(errorMsg || '删除失败');
+      message.error(errorMsg || '删除失败');
     }
   };
 
@@ -135,16 +123,16 @@ export default function TestingSourceCategoriesPage() {
       
       if (editingCategory) {
         await clientSlaService.updateSourceCategory(editingCategory.id, values);
-        toast.success('更新成功');
+        message.success('更新成功');
       } else {
         await clientSlaService.createSourceCategory(values as TestingSourceCategoryFormData);
-        toast.success('创建成功');
+        message.success('创建成功');
       }
       setModalVisible(false);
       fetchCategories(pagination.current, pagination.pageSize);
     } catch (error: unknown) {
       if (error && typeof error === 'object' && 'errorFields' in error) return;
-      toast.error(editingCategory ? '更新失败' : '创建失败');
+      message.error(editingCategory ? '更新失败' : '创建失败');
     }
   };
 
@@ -155,22 +143,27 @@ export default function TestingSourceCategoriesPage() {
     return 'default';
   };
 
-  const columns: TableColumn<TestingSourceCategory>[] = [
+  const columns: ColumnsType<TestingSourceCategory> = [
     {
       title: '名称',
       dataIndex: 'name',
       key: 'name',
       width: 150,
-      render: (name: unknown, record: TestingSourceCategory) => (
-        <div className="flex items-center gap-2">
+      render: (name: string, record) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {record.color && (
             <span 
-              className="inline-block w-3 h-3 rounded-sm" 
-              style={{ backgroundColor: record.color }} 
+              style={{ 
+                display: 'inline-block', 
+                width: 12, 
+                height: 12, 
+                borderRadius: 2, 
+                backgroundColor: record.color 
+              }} 
             />
           )}
-          <span>{name as string}</span>
-          {record.is_default && <StarIconSolid className="w-4 h-4 text-warning-500" />}
+          <span>{name}</span>
+          {record.is_default && <StarFilled style={{ color: '#faad14' }} />}
         </div>
       ),
     },
@@ -185,8 +178,8 @@ export default function TestingSourceCategoriesPage() {
       dataIndex: 'priority_weight',
       key: 'priority_weight',
       width: 100,
-      render: (weight: unknown) => (
-        <Tag color={getPriorityColor(weight as number)}>{weight as number}</Tag>
+      render: (weight: number) => (
+        <Tag color={getPriorityColor(weight)}>{weight}</Tag>
       ),
     },
     {
@@ -199,16 +192,16 @@ export default function TestingSourceCategoriesPage() {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
-      render: (text: unknown) => (text as string) || '-',
+      render: (text: string) => text || '-',
     },
     {
       title: '状态',
       dataIndex: 'is_active',
       key: 'is_active',
       width: 80,
-      render: (isActive: unknown) => (
-        <Tag color={(isActive as boolean) ? 'success' : 'default'}>
-          {(isActive as boolean) ? '启用' : '停用'}
+      render: (isActive: boolean) => (
+        <Tag color={isActive ? 'success' : 'default'}>
+          {isActive ? '启用' : '停用'}
         </Tag>
       ),
     },
@@ -217,16 +210,15 @@ export default function TestingSourceCategoriesPage() {
       dataIndex: 'is_default',
       key: 'is_default',
       width: 80,
-      render: (isDefault: unknown) => (isDefault as boolean) ? <Tag color="warning">默认</Tag> : '-',
+      render: (isDefault: boolean) => isDefault ? <Tag color="warning">默认</Tag> : '-',
     },
     {
       title: '操作',
       key: 'action',
       width: 150,
-      render: (_: unknown, record: TestingSourceCategory) => (
-        <div className="flex items-center gap-2">
-          <Button variant="link" size="small" onClick={() => handleEdit(record)}>
-            <PencilIcon className="w-4 h-4 mr-1" />
+      render: (_, record) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
             编辑
           </Button>
           <Popconfirm
@@ -236,8 +228,7 @@ export default function TestingSourceCategoriesPage() {
             okText="确定"
             cancelText="取消"
           >
-            <Button variant="link" size="small" danger disabled={record.is_default}>
-              <TrashIcon className="w-4 h-4 mr-1" />
+            <Button type="link" size="small" danger icon={<DeleteOutlined />} disabled={record.is_default}>
               删除
             </Button>
           </Popconfirm>
@@ -248,17 +239,16 @@ export default function TestingSourceCategoriesPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <Input
           placeholder="搜索名称或代码"
-          prefix={<MagnifyingGlassIcon className="w-4 h-4 text-neutral-400" />}
+          prefix={<SearchOutlined style={{ color: '#999' }} />}
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
-          className="w-56"
+          style={{ width: 224 }}
           allowClear
         />
-        <Button variant="primary" onClick={handleAdd}>
-          <PlusIcon className="w-4 h-4 mr-1" />
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新增来源类别
         </Button>
       </div>
@@ -275,8 +265,8 @@ export default function TestingSourceCategoriesPage() {
           showSizeChanger: true,
           showQuickJumper: true,
           showTotal: (total) => `共 ${total} 条`,
-          onChange: handleTableChange,
         }}
+        onChange={handleTableChange}
         scroll={{ x: 900 }}
       />
 
@@ -288,35 +278,43 @@ export default function TestingSourceCategoriesPage() {
         width={500}
         destroyOnClose
       >
-        <Form form={form as unknown as FormInstance} layout="vertical">
-          <FormItem name="name" label="名称">
+        <Form form={form} layout="vertical">
+          <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
             <Input placeholder="类别名称" />
-          </FormItem>
-          <FormItem name="code" label="代码">
+          </Form.Item>
+          <Form.Item name="code" label="代码" rules={[{ required: true, message: '请输入代码' }]}>
             <Input placeholder="唯一代码，如: vip, internal" disabled={!!editingCategory} />
-          </FormItem>
-          <div className="grid grid-cols-2 gap-4">
-            <FormItem name="priority_weight" label="优先权重" extra="0-30，数值越高优先级越高">
-              <InputNumber min={0} max={30} className="w-full" />
-            </FormItem>
-            <FormItem name="display_order" label="显示顺序">
-              <InputNumber min={0} className="w-full" />
-            </FormItem>
-          </div>
-          <FormItem name="color" label="颜色">
-            <Input type="color" className="w-20 h-8 p-0 border-0" />
-          </FormItem>
-          <FormItem name="description" label="描述">
+          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="priority_weight" label="优先权重" extra="0-30，数值越高优先级越高">
+                <InputNumber min={0} max={30} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="display_order" label="显示顺序">
+                <InputNumber min={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="color" label="颜色">
+            <Input type="color" style={{ width: 80, height: 32, padding: 0, border: 'none' }} />
+          </Form.Item>
+          <Form.Item name="description" label="描述">
             <TextArea rows={2} placeholder="类别说明" />
-          </FormItem>
-          <div className="grid grid-cols-2 gap-4">
-            <FormItem name="is_active" label="状态" valuePropName="checked">
-              <Switch />
-            </FormItem>
-            <FormItem name="is_default" label="设为默认" valuePropName="checked" extra="新工单默认使用此类别">
-              <Switch />
-            </FormItem>
-          </div>
+          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="is_active" label="状态" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="is_default" label="设为默认" valuePropName="checked" extra="新工单默认使用此类别">
+                <Switch />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
     </div>

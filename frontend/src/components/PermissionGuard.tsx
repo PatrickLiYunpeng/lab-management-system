@@ -4,7 +4,7 @@
  * 用于根据用户权限条件性渲染UI元素
  */
 import type { ReactNode } from 'react';
-import { Tooltip } from './ui';
+import { Tooltip } from 'antd';
 import { useAuthStore } from '../stores/authStore';
 import { hasPermission, hasAnyPermission, hasAllPermissions, Permission, permissionLabels } from '../utils/permissions';
 
@@ -86,7 +86,7 @@ export function PermissionGuard({
 
     return (
       <Tooltip title={tooltipText}>
-        <span className="cursor-not-allowed opacity-50">
+        <span style={{ cursor: 'not-allowed', opacity: 0.5 }}>
           {children}
         </span>
       </Tooltip>

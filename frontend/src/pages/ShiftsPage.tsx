@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  PlusIcon,
-  PencilIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-} from '@heroicons/react/24/outline';
-import { Table, Button, Input, Select, Popconfirm, Tag, useToast, Spin, type TableColumn } from '../components/ui';
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  SearchOutlined,
+} from '@ant-design/icons';
+import { Table, Button, Input, Select, Popconfirm, Tag, App, Spin, Card } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { shiftService } from '../services/shiftService';
 import { personnelService } from '../services/personnelService';
 import { laboratoryService } from '../services/laboratoryService';
@@ -41,7 +42,7 @@ export default function ShiftsPage() {
   const personnelShiftsErrorShownRef = useRef(false);
   const isMountedRef = useRef(true);
   
-  const toast = useToast();
+  const { message } = App.useApp();
 
   const fetchShifts = useCallback(async (search = '', labId?: number) => {
     setShiftsLoading(true);
@@ -58,14 +59,14 @@ export default function ShiftsPage() {
     } catch {
       if (isMountedRef.current && !shiftsErrorShownRef.current) {
         shiftsErrorShownRef.current = true;
-        toast.error('获取班次列表失败');
+        message.error('获取班次列表失败');
       }
     } finally {
       if (isMountedRef.current) {
         setShiftsLoading(false);
       }
     }
-  }, [toast]);
+  }, [message]);
 
   const fetchPersonnelShifts = useCallback(async (shiftId: number) => {
     setPersonnelShiftsLoading(true);
@@ -78,14 +79,14 @@ export default function ShiftsPage() {
     } catch {
       if (isMountedRef.current && !personnelShiftsErrorShownRef.current) {
         personnelShiftsErrorShownRef.current = true;
-        toast.error('获取人员班次失败');
+        message.error('获取人员班次失败');
       }
     } finally {
       if (isMountedRef.current) {
         setPersonnelShiftsLoading(false);
       }
     }
-  }, [toast]);
+  }, [message]);
 
   const fetchReferenceData = useCallback(async () => {
     try {
@@ -132,10 +133,9 @@ export default function ShiftsPage() {
     return () => clearTimeout(timer);
   }, [searchValue, searchText, laboratoryFilter, fetchShifts]);
 
-  const handleLaboratoryChange = (value: string | number | (string | number)[]) => {
-    const labId = Array.isArray(value) ? value[0] as number : value as number;
-    setLaboratoryFilter(labId);
-    fetchShifts(searchText, labId);
+  const handleLaboratoryChange = (value: number | undefined) => {
+    setLaboratoryFilter(value);
+    fetchShifts(searchText, value);
   };
 
   const handleAddShift = () => {
@@ -151,13 +151,13 @@ export default function ShiftsPage() {
   const handleDeleteShift = async (id: number) => {
     try {
       await shiftService.deleteShift(id);
-      toast.success('删除成功');
+      message.success('删除成功');
       fetchShifts(searchText, laboratoryFilter);
       if (selectedShift?.id === id) {
         setSelectedShift(null);
       }
     } catch {
-      toast.error('删除失败');
+      message.error('删除失败');
     }
   };
 
@@ -180,12 +180,12 @@ export default function ShiftsPage() {
   const handleRemovePersonnelShift = async (ps: PersonnelShift) => {
     try {
       await shiftService.removePersonnelShift(ps.personnel_id, ps.shift_id);
-      toast.success('移除成功');
+      message.success('移除成功');
       if (selectedShift) {
         fetchPersonnelShifts(selectedShift.id);
       }
     } catch {
-      toast.error('移除失败');
+      message.error('移除失败');
     }
   };
 
@@ -208,16 +208,16 @@ export default function ShiftsPage() {
     (p) => !personnelShifts.some((ps) => ps.personnel_id === p.id)
   );
 
-  const personnelColumns: TableColumn<PersonnelShift>[] = [
+  const personnelColumns: ColumnsType<PersonnelShift> = [
     {
       title: '人员姓名',
       key: 'name',
-      render: (_: unknown, record: PersonnelShift) => record.personnel?.user?.full_name || '-',
+      render: (_, record) => record.personnel?.user?.full_name || '-',
     },
     {
       title: '工号',
       key: 'employee_id',
-      render: (_: unknown, record: PersonnelShift) => record.personnel?.employee_id || '-',
+      render: (_, record) => record.personnel?.employee_id || '-',
     },
     {
       title: '生效日期',
@@ -228,20 +228,20 @@ export default function ShiftsPage() {
       title: '结束日期',
       dataIndex: 'end_date',
       key: 'end_date',
-      render: (text: unknown) => (text as string) || '持续有效',
+      render: (text) => (text as string) || '持续有效',
     },
     {
       title: '操作',
       key: 'action',
       width: 150,
-      render: (_: unknown, record: PersonnelShift) => (
-        <div className="flex items-center gap-2">
+      render: (_, record) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Button
-            variant="link"
+            type="link"
             size="small"
+            icon={<EditOutlined />}
             onClick={() => handleEditPersonnelShift(record)}
           >
-            <PencilIcon className="w-4 h-4 mr-1" />
             编辑
           </Button>
           <Popconfirm
@@ -251,8 +251,7 @@ export default function ShiftsPage() {
             okText="确定"
             cancelText="取消"
           >
-            <Button variant="link" size="small" danger>
-              <TrashIcon className="w-4 h-4 mr-1" />
+            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
               移除
             </Button>
           </Popconfirm>
@@ -262,25 +261,27 @@ export default function ShiftsPage() {
   ];
 
   return (
-    <div className="flex gap-4">
+    <div style={{ display: 'flex', gap: 16 }}>
       {/* Left Panel - Shifts List */}
-      <div className="w-1/3">
-        <div className="bg-white rounded-lg border border-neutral-200 shadow-sm">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
-            <h3 className="text-base font-medium text-neutral-800">班次列表</h3>
+      <div style={{ width: '33%' }}>
+        <Card
+          title="班次列表"
+          extra={
             <Button
-              variant="primary"
+              type="primary"
               size="small"
+              icon={<PlusOutlined />}
               onClick={handleAddShift}
             >
-              <PlusIcon className="w-4 h-4 mr-1" />
               新增
             </Button>
-          </div>
-          <div className="p-4 space-y-3">
+          }
+          styles={{ body: { padding: 16 } }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Input
               placeholder="搜索班次名称或代码"
-              prefix={<MagnifyingGlassIcon className="w-4 h-4 text-neutral-400" />}
+              prefix={<SearchOutlined style={{ color: '#999' }} />}
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               allowClear
@@ -288,7 +289,7 @@ export default function ShiftsPage() {
             <Select
               placeholder="全部实验室"
               allowClear
-              className="w-full"
+              style={{ width: '100%' }}
               value={laboratoryFilter}
               onChange={handleLaboratoryChange}
               options={laboratories.map((lab) => ({
@@ -298,32 +299,35 @@ export default function ShiftsPage() {
             />
 
             {shiftsLoading ? (
-              <div className="flex justify-center py-8">
+              <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
                 <Spin />
               </div>
             ) : (
-              <div className="max-h-[500px] overflow-auto space-y-2">
+              <div style={{ maxHeight: 500, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {shifts.map((shift) => (
                   <div
                     key={shift.id}
                     onClick={() => setSelectedShift(shift)}
-                    className={`p-3 rounded-md border cursor-pointer transition-colors ${
-                      selectedShift?.id === shift.id
-                        ? 'bg-primary-50 border-primary-300'
-                        : 'border-neutral-200 hover:bg-neutral-50'
-                    }`}
+                    style={{
+                      padding: 12,
+                      borderRadius: 6,
+                      border: `1px solid ${selectedShift?.id === shift.id ? '#1677ff' : '#d9d9d9'}`,
+                      backgroundColor: selectedShift?.id === shift.id ? '#e6f4ff' : '#fff',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-neutral-800 truncate">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontWeight: 500, color: '#333' }}>
                             {shift.name}
                           </span>
                           {!shift.is_active && (
                             <Tag color="default">已停用</Tag>
                           )}
                         </div>
-                        <div className="text-xs text-neutral-500 space-y-0.5">
+                        <div style={{ fontSize: 12, color: '#666' }}>
                           <div>代码: {shift.code}</div>
                           <div>时间: {formatTimeRange(shift)}</div>
                           {shift.laboratory && (
@@ -331,17 +335,16 @@ export default function ShiftsPage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 ml-2">
+                      <div style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
                         <Button
-                          variant="text"
+                          type="text"
                           size="small"
+                          icon={<EditOutlined />}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleEditShift(shift);
                           }}
-                        >
-                          <PencilIcon className="w-4 h-4" />
-                        </Button>
+                        />
                         <Popconfirm
                           title="确认删除"
                           description={`确定要删除班次 "${shift.name}" 吗？`}
@@ -350,66 +353,61 @@ export default function ShiftsPage() {
                           cancelText="取消"
                         >
                           <Button
-                            variant="text"
+                            type="text"
                             size="small"
                             danger
+                            icon={<DeleteOutlined />}
                             onClick={(e) => e.stopPropagation()}
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </Button>
+                          />
                         </Popconfirm>
                       </div>
                     </div>
                   </div>
                 ))}
                 {shifts.length === 0 && (
-                  <div className="py-8 text-center text-neutral-400">
+                  <div style={{ padding: 32, textAlign: 'center', color: '#999' }}>
                     暂无班次数据
                   </div>
                 )}
               </div>
             )}
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Right Panel - Assigned Personnel */}
-      <div className="flex-1">
-        <div className="bg-white rounded-lg border border-neutral-200 shadow-sm">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
-            <h3 className="text-base font-medium text-neutral-800">
-              {selectedShift
-                ? `已分配人员 - ${selectedShift.name}`
-                : '已分配人员'}
-            </h3>
-            {selectedShift && (
+      <div style={{ flex: 1 }}>
+        <Card
+          title={selectedShift ? `已分配人员 - ${selectedShift.name}` : '已分配人员'}
+          extra={
+            selectedShift && (
               <Button
-                variant="primary"
+                type="primary"
                 size="small"
+                icon={<PlusOutlined />}
                 onClick={handleAddPersonnel}
               >
-                <PlusIcon className="w-4 h-4 mr-1" />
                 分配人员
               </Button>
-            )}
-          </div>
-          <div className="p-4">
-            {selectedShift ? (
-              <Table
-                columns={personnelColumns}
-                dataSource={personnelShifts}
-                rowKey="id"
-                loading={personnelShiftsLoading}
-                pagination={false}
-                size="small"
-              />
-            ) : (
-              <div className="py-12 text-center text-neutral-400">
-                请从左侧选择一个班次
-              </div>
-            )}
-          </div>
-        </div>
+            )
+          }
+          styles={{ body: { padding: 16 } }}
+        >
+          {selectedShift ? (
+            <Table
+              columns={personnelColumns}
+              dataSource={personnelShifts}
+              rowKey="id"
+              loading={personnelShiftsLoading}
+              pagination={false}
+              size="small"
+            />
+          ) : (
+            <div style={{ padding: 48, textAlign: 'center', color: '#999' }}>
+              请从左侧选择一个班次
+            </div>
+          )}
+        </Card>
       </div>
 
       {/* Modals */}

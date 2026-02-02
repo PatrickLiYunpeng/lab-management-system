@@ -1,22 +1,24 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  UsersIcon,
-  WrenchScrewdriverIcon,
-  DocumentTextIcon,
-  InboxIcon,
-  ExclamationTriangleIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  ArrowDownTrayIcon,
-  ArrowPathIcon,
-  ChartBarIcon,
-  ClockIcon as HistoryIcon,
-} from '@heroicons/react/24/outline';
+  UserOutlined,
+  ToolOutlined,
+  FileTextOutlined,
+  InboxOutlined,
+  ExclamationCircleOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  DownloadOutlined,
+  ReloadOutlined,
+  BarChartOutlined,
+  HistoryOutlined,
+} from '@ant-design/icons';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, AreaChart, Area, Line,
 } from 'recharts';
 import dayjs, { type Dayjs } from 'dayjs';
+import { Card, Button, Select, Spin, Progress, Alert, Tooltip, DatePicker, Table, Tag, Space, Row, Col, Segmented, Typography } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { dashboardService } from '../services/dashboardService';
 import { siteService } from '../services/siteService';
 import { laboratoryService } from '../services/laboratoryService';
@@ -26,7 +28,8 @@ import type {
   TaskCompletionStats, SLAPerformance, WorkloadAnalysis,
 } from '../services/dashboardService';
 import type { Site, Laboratory } from '../types';
-import { Button, Select, Spin, Progress, Alert, Tooltip, DatePicker, Table, Tag, type TableColumn } from '../components/ui';
+
+const { Text, Title } = Typography;
 
 type ViewMode = 'realtime' | 'historical';
 
@@ -207,39 +210,28 @@ export function DashboardPage() {
     dashboardService.downloadCSV(csv, filename);
   };
 
-  const handleSiteChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setSiteId(v ? Number(v) : undefined);
-    setLaboratoryId(undefined);
-  };
-
-  const handleLabChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setLaboratoryId(v ? Number(v) : undefined);
-  };
-
   const taskPieData = taskStats
     ? [
-        { name: 'Completed', value: taskStats.completed_tasks, color: '#22c55e' },
-        { name: 'Pending', value: taskStats.total_tasks - taskStats.completed_tasks, color: '#3b82f6' },
+        { name: 'Completed', value: taskStats.completed_tasks, color: '#52c41a' },
+        { name: 'Pending', value: taskStats.total_tasks - taskStats.completed_tasks, color: '#1677ff' },
       ]
     : [];
 
   const slaPieData = slaPerf
     ? [
-        { name: 'On Time', value: slaPerf.on_time_count, color: '#22c55e' },
-        { name: 'Overdue', value: slaPerf.overdue_count, color: '#ef4444' },
+        { name: 'On Time', value: slaPerf.on_time_count, color: '#52c41a' },
+        { name: 'Overdue', value: slaPerf.overdue_count, color: '#ff4d4f' },
       ]
     : [];
 
   const taskPerformanceData = taskStats
     ? [
-        { name: 'On Time', value: taskStats.on_time_tasks, color: '#22c55e' },
-        { name: 'Delayed', value: taskStats.delayed_tasks, color: '#f59e0b' },
+        { name: 'On Time', value: taskStats.on_time_tasks, color: '#52c41a' },
+        { name: 'Delayed', value: taskStats.delayed_tasks, color: '#faad14' },
       ]
     : [];
 
-  const personnelColumns: TableColumn<PersonnelEfficiency>[] = [
+  const personnelColumns: ColumnsType<PersonnelEfficiency> = [
     { title: 'Employee ID', dataIndex: 'employee_id', width: 100 },
     { title: 'Tasks', dataIndex: 'total_tasks', width: 70, align: 'center' },
     { title: 'Completed', dataIndex: 'completed_tasks', width: 80, align: 'center' },
@@ -248,10 +240,9 @@ export function DashboardPage() {
       dataIndex: 'average_cycle_variance',
       width: 100,
       align: 'center',
-      render: (val: unknown) => {
-        const value = val as number | undefined;
+      render: (value: number | undefined) => {
         if (value === null || value === undefined) return '-';
-        const color = value <= 0 ? '#22c55e' : value <= 2 ? '#f59e0b' : '#ef4444';
+        const color = value <= 0 ? '#52c41a' : value <= 2 ? '#faad14' : '#ff4d4f';
         return <span style={{ color }}>{value > 0 ? '+' : ''}{value.toFixed(1)}h</span>;
       },
     },
@@ -259,11 +250,11 @@ export function DashboardPage() {
       title: 'Efficiency',
       dataIndex: 'efficiency_rate',
       width: 100,
-      render: (rate: unknown) => (
+      render: (rate: number) => (
         <Progress
-          percent={rate as number}
+          percent={rate}
           size="small"
-          status={(rate as number) >= 90 ? 'success' : (rate as number) >= 70 ? 'active' : 'exception'}
+          status={rate >= 90 ? 'success' : rate >= 70 ? 'active' : 'exception'}
           format={(p) => `${p?.toFixed(0)}%`}
         />
       ),
@@ -271,442 +262,467 @@ export function DashboardPage() {
   ];
 
   if (error) {
-    return <Alert message={error} type="error" className="m-6" />;
+    return <Alert message={error} type="error" style={{ margin: 24 }} />;
   }
 
   return (
     <div>
       {/* Header with controls */}
-      <div className="mb-6">
-        <div className="flex flex-wrap justify-between items-center gap-4">
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
           <div>
-            <h1 className="text-xl font-semibold text-neutral-900">
+            <Title level={4} style={{ margin: 0 }}>
               {viewMode === 'realtime' ? 'Real-time Dashboard' : 'Historical Analysis'}
-            </h1>
+            </Title>
             {lastUpdated && (
-              <p className="text-xs text-neutral-500">
+              <Text type="secondary" style={{ fontSize: 12 }}>
                 Last updated: {lastUpdated.toLocaleTimeString()}
-              </p>
+              </Text>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <Space wrap>
             {/* View Mode Toggle */}
-            <div className="flex rounded-md overflow-hidden border border-neutral-200">
-              <button
-                onClick={() => setViewMode('realtime')}
-                className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${viewMode === 'realtime' ? 'bg-primary-500 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
-              >
-                <ChartBarIcon className="w-4 h-4" />
-                Real-time
-              </button>
-              <button
-                onClick={() => setViewMode('historical')}
-                className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${viewMode === 'historical' ? 'bg-primary-500 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
-              >
-                <HistoryIcon className="w-4 h-4" />
-                Historical
-              </button>
-            </div>
+            <Segmented
+              value={viewMode}
+              onChange={(value) => setViewMode(value as ViewMode)}
+              options={[
+                { label: <Space><BarChartOutlined />Real-time</Space>, value: 'realtime' },
+                { label: <Space><HistoryOutlined />Historical</Space>, value: 'historical' },
+              ]}
+            />
 
             {viewMode === 'historical' && (
-              <div className="flex items-center gap-2">
+              <Space>
                 <DatePicker
                   value={dateStart}
                   onChange={(date) => date && setDateStart(date)}
-                  size="small"
+                  size="middle"
                 />
-                <span className="text-neutral-400">-</span>
+                <span style={{ color: '#999' }}>-</span>
                 <DatePicker
                   value={dateEnd}
                   onChange={(date) => date && setDateEnd(date)}
-                  size="small"
+                  size="middle"
                 />
-              </div>
+              </Space>
             )}
 
             <Select
               placeholder="All Sites"
               value={siteId}
-              onChange={handleSiteChange}
+              onChange={(value) => {
+                setSiteId(value);
+                setLaboratoryId(undefined);
+              }}
               allowClear
-              className="w-36"
+              style={{ width: 140 }}
               options={sites.map(s => ({ label: s.name, value: s.id }))}
             />
 
             <Select
               placeholder="All Laboratories"
               value={laboratoryId}
-              onChange={handleLabChange}
+              onChange={setLaboratoryId}
               allowClear
-              className="w-44"
+              style={{ width: 180 }}
               options={filteredLaboratories.map(l => ({ label: l.name, value: l.id }))}
             />
 
             <Tooltip title="Refresh">
               <Button
-                variant="default"
-                icon={<ArrowPathIcon className="w-4 h-4" />}
+                icon={<ReloadOutlined />}
                 onClick={() => fetchDashboard()}
                 loading={loading}
               />
             </Tooltip>
-          </div>
+          </Space>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-24">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '96px 0' }}>
           <Spin size="large" />
-          <p className="mt-4 text-neutral-500">Loading dashboard data...</p>
+          <Text type="secondary" style={{ marginTop: 16 }}>Loading dashboard data...</Text>
         </div>
       ) : (
         <>
           {/* Real-time Summary Cards */}
           {viewMode === 'realtime' && summary && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              <div className="bg-white rounded-lg border border-neutral-200 p-4">
-                <div className="flex items-center gap-3">
-                  <UsersIcon className="w-8 h-8 text-primary-500" />
-                  <div>
-                    <p className="text-sm text-neutral-500">Personnel</p>
-                    <p className="text-2xl font-semibold">
-                      {summary.available_personnel}
-                      <span className="text-sm text-neutral-400">/ {summary.total_personnel}</span>
-                    </p>
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+              <Col xs={24} sm={12} lg={6}>
+                <Card size="small">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <UserOutlined style={{ fontSize: 32, color: '#1677ff' }} />
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 14 }}>Personnel</Text>
+                      <div style={{ fontSize: 24, fontWeight: 600 }}>
+                        {summary.available_personnel}
+                        <Text type="secondary" style={{ fontSize: 14, marginLeft: 4 }}>/ {summary.total_personnel}</Text>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <Progress
-                  percent={summary.total_personnel ? Math.round((summary.available_personnel / summary.total_personnel) * 100) : 0}
-                  size="small"
-                  showInfo={false}
-                  className="mt-2"
-                />
-                <p className="text-xs text-neutral-500 mt-1">Available</p>
-              </div>
-              <div className="bg-white rounded-lg border border-neutral-200 p-4">
-                <div className="flex items-center gap-3">
-                  <WrenchScrewdriverIcon className="w-8 h-8 text-success-500" />
-                  <div>
-                    <p className="text-sm text-neutral-500">Equipment</p>
-                    <p className="text-2xl font-semibold">
-                      {summary.available_equipment}
-                      <span className="text-sm text-neutral-400">/ {summary.total_equipment}</span>
-                    </p>
+                  <Progress
+                    percent={summary.total_personnel ? Math.round((summary.available_personnel / summary.total_personnel) * 100) : 0}
+                    size="small"
+                    showInfo={false}
+                    style={{ marginTop: 8 }}
+                  />
+                  <Text type="secondary" style={{ fontSize: 12 }}>Available</Text>
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card size="small">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <ToolOutlined style={{ fontSize: 32, color: '#52c41a' }} />
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 14 }}>Equipment</Text>
+                      <div style={{ fontSize: 24, fontWeight: 600 }}>
+                        {summary.available_equipment}
+                        <Text type="secondary" style={{ fontSize: 14, marginLeft: 4 }}>/ {summary.total_equipment}</Text>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <Progress
-                  percent={summary.total_equipment ? Math.round((summary.available_equipment / summary.total_equipment) * 100) : 0}
-                  size="small"
-                  strokeColor="success"
-                  showInfo={false}
-                  className="mt-2"
-                />
-                <p className="text-xs text-neutral-500 mt-1">Available</p>
-              </div>
-              <div className="bg-white rounded-lg border border-neutral-200 p-4">
-                <div className="flex items-center gap-3">
-                  <DocumentTextIcon className="w-8 h-8 text-warning-500" />
-                  <div>
-                    <p className="text-sm text-neutral-500">Active Work Orders</p>
-                    <p className={`text-2xl font-semibold ${summary.overdue_work_orders ? 'text-error-500' : ''}`}>
-                      {summary.active_work_orders}
-                    </p>
+                  <Progress
+                    percent={summary.total_equipment ? Math.round((summary.available_equipment / summary.total_equipment) * 100) : 0}
+                    size="small"
+                    strokeColor="#52c41a"
+                    showInfo={false}
+                    style={{ marginTop: 8 }}
+                  />
+                  <Text type="secondary" style={{ fontSize: 12 }}>Available</Text>
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card size="small">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <FileTextOutlined style={{ fontSize: 32, color: '#faad14' }} />
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 14 }}>Active Work Orders</Text>
+                      <div style={{ fontSize: 24, fontWeight: 600, color: summary.overdue_work_orders ? '#ff4d4f' : undefined }}>
+                        {summary.active_work_orders}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                {summary.overdue_work_orders > 0 && (
-                  <Tag color="error" className="mt-2">
-                    <ExclamationTriangleIcon className="w-3 h-3 inline mr-1" />
-                    {summary.overdue_work_orders} overdue
-                  </Tag>
-                )}
-              </div>
-              <div className="bg-white rounded-lg border border-neutral-200 p-4">
-                <div className="flex items-center gap-3">
-                  <InboxIcon className="w-8 h-8 text-info-500" />
-                  <div>
-                    <p className="text-sm text-neutral-500">Pending Materials</p>
-                    <p className={`text-2xl font-semibold ${summary.overdue_materials ? 'text-error-500' : ''}`}>
-                      {summary.pending_materials}
-                    </p>
+                  {summary.overdue_work_orders > 0 && (
+                    <Tag color="error" style={{ marginTop: 8 }}>
+                      <ExclamationCircleOutlined style={{ marginRight: 4 }} />
+                      {summary.overdue_work_orders} overdue
+                    </Tag>
+                  )}
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card size="small">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <InboxOutlined style={{ fontSize: 32, color: '#1677ff' }} />
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 14 }}>Pending Materials</Text>
+                      <div style={{ fontSize: 24, fontWeight: 600, color: summary.overdue_materials ? '#ff4d4f' : undefined }}>
+                        {summary.pending_materials}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                {summary.overdue_materials > 0 && (
-                  <Tag color="error" className="mt-2">
-                    <ExclamationTriangleIcon className="w-3 h-3 inline mr-1" />
-                    {summary.overdue_materials} overdue
-                  </Tag>
-                )}
-              </div>
-            </div>
+                  {summary.overdue_materials > 0 && (
+                    <Tag color="error" style={{ marginTop: 8 }}>
+                      <ExclamationCircleOutlined style={{ marginRight: 4 }} />
+                      {summary.overdue_materials} overdue
+                    </Tag>
+                  )}
+                </Card>
+              </Col>
+            </Row>
           )}
 
           {/* Historical Summary Stats */}
           {viewMode === 'historical' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              <div className="bg-white rounded-lg border border-neutral-200 p-4">
-                <div className="flex items-center gap-3">
-                  <DocumentTextIcon className="w-8 h-8 text-primary-500" />
-                  <div>
-                    <p className="text-sm text-neutral-500">Total Tasks</p>
-                    <p className="text-2xl font-semibold">{taskStats?.total_tasks || 0}</p>
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+              <Col xs={24} sm={12} lg={6}>
+                <Card size="small">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <FileTextOutlined style={{ fontSize: 32, color: '#1677ff' }} />
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 14 }}>Total Tasks</Text>
+                      <div style={{ fontSize: 24, fontWeight: 600 }}>{taskStats?.total_tasks || 0}</div>
+                    </div>
                   </div>
-                </div>
-                <p className="text-xs text-neutral-500 mt-2">In period</p>
-              </div>
-              <div className="bg-white rounded-lg border border-neutral-200 p-4">
-                <div className="flex items-center gap-3">
-                  <CheckCircleIcon className="w-8 h-8 text-success-500" />
-                  <div>
-                    <p className="text-sm text-neutral-500">Completion Rate</p>
-                    <p className={`text-2xl font-semibold ${(taskStats?.completion_rate || 0) >= 80 ? 'text-success-500' : 'text-warning-500'}`}>
-                      {taskStats?.completion_rate || 0}%
-                    </p>
+                  <Text type="secondary" style={{ fontSize: 12, marginTop: 8, display: 'block' }}>In period</Text>
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card size="small">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <CheckCircleOutlined style={{ fontSize: 32, color: '#52c41a' }} />
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 14 }}>Completion Rate</Text>
+                      <div style={{ fontSize: 24, fontWeight: 600, color: (taskStats?.completion_rate || 0) >= 80 ? '#52c41a' : '#faad14' }}>
+                        {taskStats?.completion_rate || 0}%
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="bg-white rounded-lg border border-neutral-200 p-4">
-                <div className="flex items-center gap-3">
-                  <ClockIcon className="w-8 h-8 text-primary-500" />
-                  <div>
-                    <p className="text-sm text-neutral-500">SLA Compliance</p>
-                    <p className={`text-2xl font-semibold ${(slaPerf?.sla_compliance_rate || 0) >= 90 ? 'text-success-500' : 'text-error-500'}`}>
-                      {slaPerf?.sla_compliance_rate || 0}%
-                    </p>
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card size="small">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <ClockCircleOutlined style={{ fontSize: 32, color: '#1677ff' }} />
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 14 }}>SLA Compliance</Text>
+                      <div style={{ fontSize: 24, fontWeight: 600, color: (slaPerf?.sla_compliance_rate || 0) >= 90 ? '#52c41a' : '#ff4d4f' }}>
+                        {slaPerf?.sla_compliance_rate || 0}%
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="bg-white rounded-lg border border-neutral-200 p-4">
-                <div className="flex items-center gap-3">
-                  <HistoryIcon className="w-8 h-8 text-info-500" />
-                  <div>
-                    <p className="text-sm text-neutral-500">Avg Completion Days</p>
-                    <p className="text-2xl font-semibold">
-                      {slaPerf?.average_days_to_complete?.toFixed(1) || '-'}
-                      <span className="text-sm text-neutral-400 ml-1">days</span>
-                    </p>
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card size="small">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <HistoryOutlined style={{ fontSize: 32, color: '#1677ff' }} />
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 14 }}>Avg Completion Days</Text>
+                      <div style={{ fontSize: 24, fontWeight: 600 }}>
+                        {slaPerf?.average_days_to_complete?.toFixed(1) || '-'}
+                        <Text type="secondary" style={{ fontSize: 14, marginLeft: 4 }}>days</Text>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </div>
+                </Card>
+              </Col>
+            </Row>
           )}
 
           {/* Task Completion & SLA Performance */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-            <div className="bg-white rounded-lg border border-neutral-200 p-4">
-              <h3 className="text-sm font-medium text-neutral-700 mb-4">Task Completion</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={taskPieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={70}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}
-                    >
-                      {taskPieData.map((entry, index) => (
-                        <Cell key={index} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex flex-col justify-center">
-                  <div className="mb-4">
-                    <p className="text-xs text-neutral-500">Completion Rate</p>
-                    <p className="text-xl font-semibold flex items-center gap-1">
-                      <CheckCircleIcon className="w-5 h-5 text-success-500" />
-                      {taskStats?.completion_rate || 0}%
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-neutral-500">On-Time Rate</p>
-                    <p className="text-xl font-semibold flex items-center gap-1">
-                      <ClockIcon className="w-5 h-5 text-primary-500" />
-                      {taskStats?.on_time_rate || 0}%
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg border border-neutral-200 p-4">
-              <h3 className="text-sm font-medium text-neutral-700 mb-4">SLA Performance</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={slaPieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={70}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}
-                    >
-                      {slaPieData.map((entry, index) => (
-                        <Cell key={index} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex flex-col justify-center">
-                  <div className="mb-4">
-                    <p className="text-xs text-neutral-500">SLA Compliance</p>
-                    <p className={`text-xl font-semibold ${(slaPerf?.sla_compliance_rate || 0) >= 90 ? 'text-success-500' : 'text-error-500'}`}>
-                      {slaPerf?.sla_compliance_rate || 0}%
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-neutral-500">Avg Completion Days</p>
-                    <p className="text-xl font-semibold">
-                      {slaPerf?.average_days_to_complete?.toFixed(1) || '-'} days
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            <Col xs={24} lg={12}>
+              <Card size="small" title="Task Completion">
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={taskPieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={70}
+                          dataKey="value"
+                          label={({ name, value }) => `${name}: ${value}`}
+                        >
+                          {taskPieData.map((entry, index) => (
+                            <Cell key={index} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </Col>
+                  <Col span={12} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <div style={{ marginBottom: 16 }}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>Completion Rate</Text>
+                      <div style={{ fontSize: 20, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                        {taskStats?.completion_rate || 0}%
+                      </div>
+                    </div>
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 12 }}>On-Time Rate</Text>
+                      <div style={{ fontSize: 20, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <ClockCircleOutlined style={{ color: '#1677ff' }} />
+                        {taskStats?.on_time_rate || 0}%
+                      </div>
+                    </div>
+                  </Col>
+                </Row>
+              </Card>
+            </Col>
+            <Col xs={24} lg={12}>
+              <Card size="small" title="SLA Performance">
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={slaPieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={70}
+                          dataKey="value"
+                          label={({ name, value }) => `${name}: ${value}`}
+                        >
+                          {slaPieData.map((entry, index) => (
+                            <Cell key={index} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </Col>
+                  <Col span={12} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <div style={{ marginBottom: 16 }}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>SLA Compliance</Text>
+                      <div style={{ fontSize: 20, fontWeight: 600, color: (slaPerf?.sla_compliance_rate || 0) >= 90 ? '#52c41a' : '#ff4d4f' }}>
+                        {slaPerf?.sla_compliance_rate || 0}%
+                      </div>
+                    </div>
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 12 }}>Avg Completion Days</Text>
+                      <div style={{ fontSize: 20, fontWeight: 600 }}>
+                        {slaPerf?.average_days_to_complete?.toFixed(1) || '-'} days
+                      </div>
+                    </div>
+                  </Col>
+                </Row>
+              </Card>
+            </Col>
+          </Row>
 
           {/* Cycle Performance & Workload Trend */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-            <div className="bg-white rounded-lg border border-neutral-200 p-4">
-              <h3 className="text-sm font-medium text-neutral-700 mb-4">Task Cycle Performance</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={taskPerformanceData} layout="vertical" margin={{ left: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis type="category" dataKey="name" width={80} />
-                  <RechartsTooltip />
-                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                    {taskPerformanceData.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-              <hr className="my-3 border-neutral-200" />
-              <div className="flex gap-8">
-                <div>
-                  <span className="text-xs text-neutral-500">On-Time Tasks:</span>{' '}
-                  <span className="font-medium text-success-500">{taskStats?.on_time_tasks || 0}</span>
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            <Col xs={24} lg={12}>
+              <Card size="small" title="Task Cycle Performance">
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={taskPerformanceData} layout="vertical" margin={{ left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis type="category" dataKey="name" width={80} />
+                    <RechartsTooltip />
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                      {taskPerformanceData.map((entry, index) => (
+                        <Cell key={index} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+                <div style={{ borderTop: '1px solid #f0f0f0', marginTop: 12, paddingTop: 12, display: 'flex', gap: 32 }}>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>On-Time Tasks:</Text>{' '}
+                    <span style={{ fontWeight: 500, color: '#52c41a' }}>{taskStats?.on_time_tasks || 0}</span>
+                  </div>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>Delayed Tasks:</Text>{' '}
+                    <span style={{ fontWeight: 500, color: '#faad14' }}>{taskStats?.delayed_tasks || 0}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-xs text-neutral-500">Delayed Tasks:</span>{' '}
-                  <span className="font-medium text-warning-500">{taskStats?.delayed_tasks || 0}</span>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg border border-neutral-200 p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-medium text-neutral-700">Daily Workload Trend</h3>
-                <Tooltip title="Export CSV">
-                  <Button
-                    variant="text"
-                    size="small"
-                    icon={<ArrowDownTrayIcon className="w-4 h-4" />}
-                    onClick={handleExportWorkload}
-                  />
-                </Tooltip>
-              </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={workload}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="date" 
-                    tickFormatter={(date) => dayjs(date).format('MM/DD')}
-                  />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <RechartsTooltip
-                    labelFormatter={(date) => dayjs(date).format('YYYY-MM-DD')}
-                    formatter={(value) => [(value as number).toFixed(1)]}
-                  />
-                  <Legend />
-                  <Area
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="total_work_hours"
-                    name="Work Hours"
-                    stroke="#3b82f6"
-                    fill="#3b82f6"
-                    fillOpacity={0.3}
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="tasks_completed"
-                    name="Tasks Completed"
-                    stroke="#22c55e"
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+              </Card>
+            </Col>
+            <Col xs={24} lg={12}>
+              <Card 
+                size="small" 
+                title="Daily Workload Trend"
+                extra={
+                  <Tooltip title="Export CSV">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DownloadOutlined />}
+                      onClick={handleExportWorkload}
+                    />
+                  </Tooltip>
+                }
+              >
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={workload}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(date) => dayjs(date).format('MM/DD')}
+                    />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <RechartsTooltip
+                      labelFormatter={(date) => dayjs(date).format('YYYY-MM-DD')}
+                      formatter={(value) => [(value as number).toFixed(1)]}
+                    />
+                    <Legend />
+                    <Area
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="total_work_hours"
+                      name="Work Hours"
+                      stroke="#1677ff"
+                      fill="#1677ff"
+                      fillOpacity={0.3}
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="tasks_completed"
+                      name="Tasks Completed"
+                      stroke="#52c41a"
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </Card>
+            </Col>
+          </Row>
 
           {/* Equipment Utilization & Personnel Efficiency */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-white rounded-lg border border-neutral-200 p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-medium text-neutral-700">
-                  Equipment Utilization {viewMode === 'historical' ? '' : '(7 Days)'}
-                </h3>
-                <Tooltip title="Export CSV">
-                  <Button
-                    variant="text"
-                    size="small"
-                    icon={<ArrowDownTrayIcon className="w-4 h-4" />}
-                    onClick={handleExportEquipment}
-                  />
-                </Tooltip>
-              </div>
-              <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={equipmentUtil} layout="vertical" margin={{ left: 100 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" domain={[0, 100]} unit="%" />
-                  <YAxis type="category" dataKey="equipment_name" width={100} tick={{ fontSize: 11 }} />
-                  <RechartsTooltip formatter={(value) => [`${(value as number).toFixed(1)}%`, 'Utilization']} />
-                  <Bar dataKey="utilization_rate" radius={[0, 4, 4, 0]}>
-                    {equipmentUtil.map((entry, index) => (
-                      <Cell
-                        key={index}
-                        fill={
-                          entry.utilization_rate >= 80 ? '#22c55e' :
-                          entry.utilization_rate >= 50 ? '#3b82f6' :
-                          entry.utilization_rate >= 30 ? '#f59e0b' : '#ef4444'
-                        }
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="bg-white rounded-lg border border-neutral-200 p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-medium text-neutral-700">
-                  Personnel Efficiency {viewMode === 'historical' ? '' : '(30 Days)'}
-                </h3>
-                <Tooltip title="Export CSV">
-                  <Button
-                    variant="text"
-                    size="small"
-                    icon={<ArrowDownTrayIcon className="w-4 h-4" />}
-                    onClick={handleExportPersonnel}
-                  />
-                </Tooltip>
-              </div>
-              <Table
-                dataSource={personnelEff}
-                rowKey="personnel_id"
-                columns={personnelColumns}
-                size="small"
-                scroll={{ y: 300 }}
-              />
-            </div>
-          </div>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} lg={12}>
+              <Card 
+                size="small" 
+                title={`Equipment Utilization ${viewMode === 'historical' ? '' : '(7 Days)'}`}
+                extra={
+                  <Tooltip title="Export CSV">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DownloadOutlined />}
+                      onClick={handleExportEquipment}
+                    />
+                  </Tooltip>
+                }
+              >
+                <ResponsiveContainer width="100%" height={350}>
+                  <BarChart data={equipmentUtil} layout="vertical" margin={{ left: 100 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" domain={[0, 100]} unit="%" />
+                    <YAxis type="category" dataKey="equipment_name" width={100} tick={{ fontSize: 11 }} />
+                    <RechartsTooltip formatter={(value) => [`${(value as number).toFixed(1)}%`, 'Utilization']} />
+                    <Bar dataKey="utilization_rate" radius={[0, 4, 4, 0]}>
+                      {equipmentUtil.map((entry, index) => (
+                        <Cell
+                          key={index}
+                          fill={
+                            entry.utilization_rate >= 80 ? '#52c41a' :
+                            entry.utilization_rate >= 50 ? '#1677ff' :
+                            entry.utilization_rate >= 30 ? '#faad14' : '#ff4d4f'
+                          }
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+            </Col>
+            <Col xs={24} lg={12}>
+              <Card 
+                size="small" 
+                title={`Personnel Efficiency ${viewMode === 'historical' ? '' : '(30 Days)'}`}
+                extra={
+                  <Tooltip title="Export CSV">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DownloadOutlined />}
+                      onClick={handleExportPersonnel}
+                    />
+                  </Tooltip>
+                }
+              >
+                <Table
+                  dataSource={personnelEff}
+                  rowKey="personnel_id"
+                  columns={personnelColumns}
+                  size="small"
+                  scroll={{ y: 300 }}
+                  pagination={false}
+                />
+              </Card>
+            </Col>
+          </Row>
         </>
       )}
     </div>

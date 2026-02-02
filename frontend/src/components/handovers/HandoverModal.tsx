@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Modal, Select, TextArea, useToast, useForm, Form, FormItem, type FormInstance } from '../ui';
+import { Modal, Form, Select, Input, App } from 'antd';
 import { handoverService } from '../../services/handoverService';
 import { personnelService } from '../../services/personnelService';
 import type { WorkOrderTask, Personnel, HandoverPriority } from '../../types';
+
+const { TextArea } = Input;
 
 interface HandoverModalProps {
   visible: boolean;
@@ -26,21 +28,10 @@ interface HandoverFormValues {
 }
 
 export function HandoverModal({ visible, task, onSuccess, onCancel }: HandoverModalProps) {
-  const [form] = useForm<HandoverFormValues>({
-    initialValues: {
-      to_technician_id: undefined,
-      priority: 'normal',
-      progress_summary: '',
-      pending_items: '',
-      special_instructions: '',
-    },
-    rules: {
-      priority: [{ required: true, message: '请选择优先级' }],
-    },
-  });
+  const [form] = Form.useForm<HandoverFormValues>();
   const [loading, setLoading] = useState(false);
   const [technicians, setTechnicians] = useState<Personnel[]>([]);
-  const toast = useToast();
+  const { message } = App.useApp();
 
   useEffect(() => {
     if (visible) {
@@ -70,13 +61,13 @@ export function HandoverModal({ visible, task, onSuccess, onCancel }: HandoverMo
         special_instructions: values.special_instructions || undefined,
       });
 
-      toast.success('交接创建成功');
+      message.success('交接创建成功');
       onSuccess();
     } catch (error: unknown) {
       if (error && typeof error === 'object' && 'errorFields' in error) {
         return;
       }
-      toast.error('创建交接失败');
+      message.error('创建交接失败');
     } finally {
       setLoading(false);
     }
@@ -94,34 +85,35 @@ export function HandoverModal({ visible, task, onSuccess, onCancel }: HandoverMo
       cancelText="取消"
       destroyOnClose
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
-        <FormItem name="to_technician_id" label="接收技术员">
+      <Form form={form} layout="vertical">
+        <Form.Item name="to_technician_id" label="接收技术员">
           <Select
             placeholder="选择接收技术员（可留空由他人认领）"
             allowClear
             showSearch
+            optionFilterProp="label"
             options={technicians.map((tech) => ({
               label: `${tech.user?.full_name || tech.employee_id} (${tech.employee_id})`,
               value: tech.id,
             }))}
           />
-        </FormItem>
+        </Form.Item>
 
-        <FormItem name="priority" label="优先级">
+        <Form.Item name="priority" label="优先级" rules={[{ required: true, message: '请选择优先级' }]}>
           <Select placeholder="选择优先级" options={priorityOptions} />
-        </FormItem>
+        </Form.Item>
 
-        <FormItem name="progress_summary" label="已完成工作">
+        <Form.Item name="progress_summary" label="已完成工作">
           <TextArea rows={3} placeholder="描述已经完成的工作内容..." />
-        </FormItem>
+        </Form.Item>
 
-        <FormItem name="pending_items" label="待完成事项">
+        <Form.Item name="pending_items" label="待完成事项">
           <TextArea rows={3} placeholder="描述还需要完成的工作..." />
-        </FormItem>
+        </Form.Item>
 
-        <FormItem name="special_instructions" label="特别说明">
+        <Form.Item name="special_instructions" label="特别说明">
           <TextArea rows={2} placeholder="任何重要的注意事项或说明..." />
-        </FormItem>
+        </Form.Item>
       </Form>
     </Modal>
   );

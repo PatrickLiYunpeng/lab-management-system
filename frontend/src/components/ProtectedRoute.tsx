@@ -1,6 +1,5 @@
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { Button } from './ui';
+import { Result, Button, Space } from 'antd';
 import { useAuthStore } from '../stores/authStore';
 import { canAccessRoute, getFirstAccessibleRoute } from '../utils/permissions';
 import type { UserRole } from '../types';
@@ -23,24 +22,22 @@ export function ProtectedRoute({ requiredRole }: ProtectedRouteProps) {
   if (requiredRole && user?.role !== requiredRole && user?.role !== 'admin') {
     const accessibleRoute = getFirstAccessibleRoute(user?.role);
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-warning-100 rounded-full flex items-center justify-center">
-              <ExclamationTriangleIcon className="w-8 h-8 text-warning-600" />
-            </div>
-          </div>
-          <h1 className="text-4xl font-bold text-neutral-800 mb-2">403</h1>
-          <p className="text-neutral-500 mb-6">抱歉，您没有权限访问此页面。</p>
-          <div className="flex justify-center gap-3">
-            <Button variant="primary" onClick={() => navigate(accessibleRoute)}>
-              返回首页
-            </Button>
-            <Button onClick={() => { logout(); navigate('/login'); }}>
-              退出登录
-            </Button>
-          </div>
-        </div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5' }}>
+        <Result
+          status="403"
+          title="403"
+          subTitle="抱歉，您没有权限访问此页面。"
+          extra={
+            <Space>
+              <Button type="primary" onClick={() => navigate(accessibleRoute)}>
+                返回首页
+              </Button>
+              <Button onClick={() => { logout(); navigate('/login'); }}>
+                退出登录
+              </Button>
+            </Space>
+          }
+        />
       </div>
     );
   }
@@ -49,24 +46,22 @@ export function ProtectedRoute({ requiredRole }: ProtectedRouteProps) {
   if (!canAccessRoute(user?.role, location.pathname)) {
     const accessibleRoute = getFirstAccessibleRoute(user?.role);
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-warning-100 rounded-full flex items-center justify-center">
-              <ExclamationTriangleIcon className="w-8 h-8 text-warning-600" />
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold text-neutral-800 mb-2">无权访问</h1>
-          <p className="text-neutral-500 mb-6">您的角色没有权限访问此功能，请联系管理员。</p>
-          <div className="flex justify-center gap-3">
-            <Button variant="primary" onClick={() => navigate(accessibleRoute)}>
-              返回首页
-            </Button>
-            <Button onClick={() => { logout(); navigate('/login'); }}>
-              退出登录
-            </Button>
-          </div>
-        </div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5' }}>
+        <Result
+          status="403"
+          title="无权访问"
+          subTitle="您的角色没有权限访问此功能，请联系管理员。"
+          extra={
+            <Space>
+              <Button type="primary" onClick={() => navigate(accessibleRoute)}>
+                返回首页
+              </Button>
+              <Button onClick={() => { logout(); navigate('/login'); }}>
+                退出登录
+              </Button>
+            </Space>
+          }
+        />
       </div>
     );
   }

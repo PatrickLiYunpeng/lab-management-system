@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
-import { Modal, Input, Select, DatePicker, useToast, useForm, Form, FormItem, type FormInstance } from '../ui';
+import { Modal, Form, Input, Select, DatePicker, Row, Col, App } from 'antd';
 import { personnelService } from '../../services/personnelService';
 import type { Personnel, PersonnelFormData, PersonnelUpdateData, Site, Laboratory, User } from '../../types';
 
@@ -50,29 +50,10 @@ export function PersonnelModal({
   onSuccess,
   onCancel,
 }: PersonnelModalProps) {
-  const [form] = useForm<PersonnelFormValues>({
-    initialValues: {
-      employee_id: '',
-      user_id: undefined as unknown as number,
-      primary_site_id: undefined as unknown as number,
-      primary_laboratory_id: undefined as unknown as number,
-      current_site_id: undefined,
-      current_laboratory_id: undefined,
-      job_title: '',
-      department: '',
-      hire_date: undefined,
-      status: undefined,
-    },
-    rules: {
-      employee_id: [{ required: true, message: '请输入员工编号' }],
-      user_id: [{ required: true, message: '请选择关联用户' }],
-      primary_site_id: [{ required: true, message: '请选择主站点' }],
-      primary_laboratory_id: [{ required: true, message: '请选择主实验室' }],
-    },
-  });
+  const [form] = Form.useForm<PersonnelFormValues>();
   const [loading, setLoading] = useState(false);
   const [selectedSiteId, setSelectedSiteId] = useState<number | undefined>();
-  const toast = useToast();
+  const { message } = App.useApp();
 
   const filteredLaboratories = selectedSiteId
     ? laboratories.filter((lab) => lab.site_id === selectedSiteId)
@@ -97,25 +78,21 @@ export function PersonnelModal({
     }
   }, [visible, personnel, form]);
 
-  const handleSiteChange = (value: string | number | (string | number)[]) => {
-    const siteId = Array.isArray(value) ? value[0] as number : value as number;
-    setSelectedSiteId(siteId);
+  const handleSiteChange = (value: number) => {
+    setSelectedSiteId(value);
     const currentLabId = form.getFieldValue('primary_laboratory_id');
     if (currentLabId) {
       const lab = laboratories.find((l) => l.id === currentLabId);
-      if (lab && lab.site_id !== siteId) {
+      if (lab && lab.site_id !== value) {
         form.setFieldValue('primary_laboratory_id', undefined);
       }
     }
   };
 
   const handleSubmit = async () => {
-    const isValid = await form.validateFields();
-    if (!isValid) return;
-
     try {
+      const values = await form.validateFields();
       setLoading(true);
-      const values = form.getFieldsValue();
 
       const formData = {
         ...values,
@@ -124,15 +101,18 @@ export function PersonnelModal({
 
       if (personnel) {
         await personnelService.updatePersonnel(personnel.id, formData as unknown as PersonnelUpdateData);
-        toast.success('更新成功');
+        message.success('更新成功');
       } else {
         await personnelService.createPersonnel(formData as unknown as PersonnelFormData);
-        toast.success('创建成功');
+        message.success('创建成功');
       }
 
       onSuccess();
-    } catch {
-      toast.error(personnel ? '更新失败' : '创建失败');
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'errorFields' in error) {
+        return;
+      }
+      message.error(personnel ? '更新失败' : '创建失败');
     } finally {
       setLoading(false);
     }
@@ -150,99 +130,124 @@ export function PersonnelModal({
       cancelText="取消"
       destroyOnClose
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="employee_id" label="员工编号">
-            <Input placeholder="请输入员工编号" />
-          </FormItem>
-          <FormItem name="user_id" label="关联用户">
-            <Select
-              placeholder="请选择关联用户"
-              disabled={!!personnel}
-              showSearch
-              options={availableUsers.map((user) => ({
-                label: `${user.full_name || user.username} (${user.username})`,
-                value: user.id,
-              }))}
-            />
-          </FormItem>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="primary_site_id" label="主站点">
-            <Select
-              placeholder="请选择主站点"
-              onChange={handleSiteChange}
-              showSearch
-              options={sites.map((site) => ({
-                label: `${site.name} (${site.code})`,
-                value: site.id,
-              }))}
-            />
-          </FormItem>
-          <FormItem name="primary_laboratory_id" label="主实验室">
-            <Select
-              placeholder="请先选择主站点"
-              disabled={!selectedSiteId}
-              showSearch
-              options={filteredLaboratories.map((lab) => ({
-                label: `${lab.name} (${lab.code})`,
-                value: lab.id,
-              }))}
-            />
-          </FormItem>
-        </div>
-
-        {personnel && (
-          <div className="grid grid-cols-2 gap-4">
-            <FormItem name="current_site_id" label="当前站点">
+      <Form form={form} layout="vertical">
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="employee_id" label="员工编号" rules={[{ required: true, message: '请输入员工编号' }]}>
+              <Input placeholder="请输入员工编号" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="user_id" label="关联用户" rules={[{ required: true, message: '请选择关联用户' }]}>
               <Select
-                placeholder="请选择当前站点"
-                allowClear
+                placeholder="请选择关联用户"
+                disabled={!!personnel}
                 showSearch
+                optionFilterProp="label"
+                options={availableUsers.map((user) => ({
+                  label: `${user.full_name || user.username} (${user.username})`,
+                  value: user.id,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="primary_site_id" label="主站点" rules={[{ required: true, message: '请选择主站点' }]}>
+              <Select
+                placeholder="请选择主站点"
+                onChange={handleSiteChange}
+                showSearch
+                optionFilterProp="label"
                 options={sites.map((site) => ({
                   label: `${site.name} (${site.code})`,
                   value: site.id,
                 }))}
               />
-            </FormItem>
-            <FormItem name="current_laboratory_id" label="当前实验室">
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="primary_laboratory_id" label="主实验室" rules={[{ required: true, message: '请选择主实验室' }]}>
               <Select
-                placeholder="请选择当前实验室"
-                allowClear
+                placeholder="请先选择主站点"
+                disabled={!selectedSiteId}
                 showSearch
-                options={laboratories.map((lab) => ({
+                optionFilterProp="label"
+                options={filteredLaboratories.map((lab) => ({
                   label: `${lab.name} (${lab.code})`,
                   value: lab.id,
                 }))}
               />
-            </FormItem>
-          </div>
+            </Form.Item>
+          </Col>
+        </Row>
+
+        {personnel && (
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="current_site_id" label="当前站点">
+                <Select
+                  placeholder="请选择当前站点"
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  options={sites.map((site) => ({
+                    label: `${site.name} (${site.code})`,
+                    value: site.id,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="current_laboratory_id" label="当前实验室">
+                <Select
+                  placeholder="请选择当前实验室"
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  options={laboratories.map((lab) => ({
+                    label: `${lab.name} (${lab.code})`,
+                    value: lab.id,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="job_title" label="职位">
-            <Input placeholder="请输入职位" />
-          </FormItem>
-          <FormItem name="department" label="部门">
-            <Select
-              placeholder="请选择部门"
-              allowClear
-              options={departmentOptions}
-            />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="job_title" label="职位">
+              <Input placeholder="请输入职位" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="department" label="部门">
+              <Select
+                placeholder="请选择部门"
+                allowClear
+                options={departmentOptions}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="hire_date" label="入职日期">
-            <DatePicker className="w-full" placeholder="请选择入职日期" />
-          </FormItem>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="hire_date" label="入职日期">
+              <DatePicker style={{ width: '100%' }} placeholder="请选择入职日期" />
+            </Form.Item>
+          </Col>
           {personnel && (
-            <FormItem name="status" label="状态">
-              <Select placeholder="请选择状态" options={statusOptions} />
-            </FormItem>
+            <Col span={12}>
+              <Form.Item name="status" label="状态">
+                <Select placeholder="请选择状态" options={statusOptions} />
+              </Form.Item>
+            </Col>
           )}
-        </div>
+        </Row>
       </Form>
     </Modal>
   );

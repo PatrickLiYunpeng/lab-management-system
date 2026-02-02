@@ -11,7 +11,10 @@ The Laboratory Management System (LMS) is a comprehensive laboratory operations 
 
 ### 2.1 前端 Frontend
 - **框架**: React 19 + TypeScript
-- **UI组件库**: Ant Design 6.x
+- **样式**: Tailwind CSS 4.x
+- **UI组件**: Headless UI + 自定义组件
+- **图标**: Heroicons
+- **表格**: TanStack Table
 - **图表库**: Recharts
 - **状态管理**: Zustand
 - **HTTP客户端**: Axios
@@ -23,7 +26,7 @@ The Laboratory Management System (LMS) is a comprehensive laboratory operations 
 - **ORM**: SQLAlchemy 2.x
 - **数据库迁移**: Alembic
 - **认证**: JWT (JSON Web Tokens)
-- **数据库**: SQLite (开发) / PostgreSQL (生产)
+- **数据库**: SQLite (开发) / MySQL 8.0 (生产)
 
 ### 2.3 部署 Deployment
 - **容器化**: Docker + Docker Compose
@@ -72,7 +75,7 @@ The Laboratory Management System (LMS) is a comprehensive laboratory operations 
                                                 ▼
                               ┌─────────────────────────────┐
                               │         数据库 Database      │
-                              │   SQLite / PostgreSQL       │
+                              │     SQLite / MySQL 8.0      │
                               └─────────────────────────────┘
 ```
 
@@ -210,7 +213,9 @@ Alibaba Cloud ECS
 │   ├── 静态资源服务
 │   └── API反向代理
 ├── Docker Containers
-│   ├── Frontend Container
-│   └── Backend Container
-└── PostgreSQL Database
+│   ├── Frontend Container (React)
+│   ├── Backend Container (FastAPI)
+│   └── Database Container (MySQL 8.0)
+└── Volumes
+    └── mysql_data (持久化存储)
 ```

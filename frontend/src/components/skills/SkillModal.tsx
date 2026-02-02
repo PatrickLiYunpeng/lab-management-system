@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Modal, Input, Select, Switch, InputNumber, TextArea, useToast, useForm, Form, FormItem, type FormInstance } from '../ui';
+import { Modal, Form, Input, Select, Switch, InputNumber, Row, Col, App } from 'antd';
 import { skillService } from '../../services/skillService';
 import type { Skill, SkillFormData, SkillCategory } from '../../types';
+
+const { TextArea } = Input;
 
 interface SkillModalProps {
   visible: boolean;
@@ -37,26 +39,10 @@ interface SkillFormValues {
 }
 
 export function SkillModal({ visible, skill, onSuccess, onCancel }: SkillModalProps) {
-  const [form] = useForm<SkillFormValues>({
-    initialValues: {
-      name: '',
-      code: '',
-      category: '',
-      lab_type: '',
-      description: '',
-      requires_certification: false,
-      certification_validity_days: undefined,
-      is_active: true,
-    },
-    rules: {
-      name: [{ required: true, message: '请输入技能名称' }],
-      code: [{ required: true, message: '请输入技能代码' }],
-      category: [{ required: true, message: '请选择技能类别' }],
-    },
-  });
+  const [form] = Form.useForm<SkillFormValues>();
   const [loading, setLoading] = useState(false);
   const [requiresCertification, setRequiresCertification] = useState(false);
-  const toast = useToast();
+  const { message } = App.useApp();
 
   useEffect(() => {
     if (visible) {
@@ -101,10 +87,10 @@ export function SkillModal({ visible, skill, onSuccess, onCancel }: SkillModalPr
 
       if (skill) {
         await skillService.updateSkill(skill.id, submitData);
-        toast.success('技能更新成功');
+        message.success('技能更新成功');
       } else {
         await skillService.createSkill(submitData);
-        toast.success('技能创建成功');
+        message.success('技能创建成功');
       }
 
       onSuccess();
@@ -112,7 +98,7 @@ export function SkillModal({ visible, skill, onSuccess, onCancel }: SkillModalPr
       if (error && typeof error === 'object' && 'errorFields' in error) {
         return;
       }
-      toast.error(skill ? '更新失败' : '创建失败');
+      message.error(skill ? '更新失败' : '创建失败');
     } finally {
       setLoading(false);
     }
@@ -134,47 +120,61 @@ export function SkillModal({ visible, skill, onSuccess, onCancel }: SkillModalPr
       cancelText="取消"
       destroyOnClose
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="name" label="技能名称">
-            <Input placeholder="请输入技能名称" />
-          </FormItem>
-          <FormItem name="code" label="技能代码">
-            <Input placeholder="请输入技能代码" disabled={!!skill} />
-          </FormItem>
-        </div>
+      <Form form={form} layout="vertical">
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="name" label="技能名称" rules={[{ required: true, message: '请输入技能名称' }]}>
+              <Input placeholder="请输入技能名称" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="code" label="技能代码" rules={[{ required: true, message: '请输入技能代码' }]}>
+              <Input placeholder="请输入技能代码" disabled={!!skill} />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="category" label="技能类别">
-            <Select options={categoryOptions} placeholder="请选择技能类别" />
-          </FormItem>
-          <FormItem name="lab_type" label="适用实验室">
-            <Select options={labTypeOptions} placeholder="请选择适用实验室" allowClear />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="category" label="技能类别" rules={[{ required: true, message: '请选择技能类别' }]}>
+              <Select options={categoryOptions} placeholder="请选择技能类别" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="lab_type" label="适用实验室">
+              <Select options={labTypeOptions} placeholder="请选择适用实验室" allowClear />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <FormItem name="description" label="描述">
+        <Form.Item name="description" label="描述">
           <TextArea rows={3} placeholder="请输入技能描述" />
-        </FormItem>
+        </Form.Item>
 
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="requires_certification" label="需要认证" valuePropName="checked">
-            <Switch onChange={handleRequiresCertificationChange} />
-          </FormItem>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="requires_certification" label="需要认证" valuePropName="checked">
+              <Switch onChange={handleRequiresCertificationChange} />
+            </Form.Item>
+          </Col>
           {requiresCertification && (
-            <FormItem name="certification_validity_days" label="认证有效期(天)">
-              <InputNumber
-                min={1}
-                max={3650}
-                placeholder="认证有效天数"
-                className="w-full"
-              />
-            </FormItem>
+            <Col span={8}>
+              <Form.Item name="certification_validity_days" label="认证有效期(天)">
+                <InputNumber
+                  min={1}
+                  max={3650}
+                  placeholder="认证有效天数"
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </Col>
           )}
-          <FormItem name="is_active" label="状态" valuePropName="checked">
-            <Switch />
-          </FormItem>
-        </div>
+          <Col span={8}>
+            <Form.Item name="is_active" label="状态" valuePropName="checked">
+              <Switch />
+            </Form.Item>
+          </Col>
+        </Row>
       </Form>
     </Modal>
   );

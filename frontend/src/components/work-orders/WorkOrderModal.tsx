@@ -1,21 +1,10 @@
 import { useEffect, useState } from 'react';
 import dayjs, { type Dayjs } from 'dayjs';
+import { Modal, Form, Input, Select, InputNumber, DatePicker, Row, Col, Button, App } from 'antd';
 import { workOrderService } from '../../services/workOrderService';
 import type { WorkOrder, WorkOrderFormData, WorkOrderUpdateData, Site, Laboratory, Client } from '../../types';
-import {
-  Button,
-  Input,
-  TextArea,
-  Select,
-  InputNumber,
-  DatePicker,
-  Modal,
-  useToast,
-  useForm,
-  Form,
-  FormItem,
-  type FormInstance,
-} from '../ui';
+
+const { TextArea } = Input;
 
 interface WorkOrderModalProps {
   visible: boolean;
@@ -80,8 +69,8 @@ export function WorkOrderModal({
   onSuccess,
   onCancel,
 }: WorkOrderModalProps) {
-  const toast = useToast();
-  const [form] = useForm();
+  const { message } = App.useApp();
+  const [form] = Form.useForm<WorkOrderFormValues>();
   const [loading, setLoading] = useState(false);
   const [selectedSiteId, setSelectedSiteId] = useState<number | undefined>();
 
@@ -103,20 +92,19 @@ export function WorkOrderModal({
         form.setFieldsValue({ 
           work_order_type: 'failure_analysis',
           testing_source: 'external',
-          priority_level: 3,
+          priority: 3,
         });
         setSelectedSiteId(undefined);
       }
     }
   }, [visible, workOrder, form]);
 
-  const handleSiteChange = (value: string | number | (string | number)[]) => {
-    const siteId = Array.isArray(value) ? value[0] : value;
-    setSelectedSiteId(siteId ? Number(siteId) : undefined);
+  const handleSiteChange = (value: number) => {
+    setSelectedSiteId(value);
     const currentLabId = form.getFieldValue('laboratory_id');
-    if (currentLabId && siteId) {
+    if (currentLabId && value) {
       const lab = laboratories.find((l) => l.id === currentLabId);
-      if (lab && lab.site_id !== Number(siteId)) {
+      if (lab && lab.site_id !== value) {
         form.setFieldValue('laboratory_id', undefined);
       }
     }
@@ -124,12 +112,7 @@ export function WorkOrderModal({
 
   const handleSubmit = async () => {
     try {
-      const errors = await form.validateFields();
-      if (errors && Object.keys(errors).length > 0) {
-        return;
-      }
-      
-      const values = form.getFieldsValue() as WorkOrderFormValues;
+      const values = await form.validateFields();
       setLoading(true);
 
       const slaDeadline = values.sla_deadline;
@@ -140,15 +123,15 @@ export function WorkOrderModal({
 
       if (workOrder) {
         await workOrderService.updateWorkOrder(workOrder.id, formData as WorkOrderUpdateData);
-        toast.success('更新成功');
+        message.success('更新成功');
       } else {
         await workOrderService.createWorkOrder(formData as WorkOrderFormData);
-        toast.success('创建成功');
+        message.success('创建成功');
       }
 
       onSuccess();
     } catch {
-      toast.error(workOrder ? '更新失败' : '创建失败');
+      message.error(workOrder ? '更新失败' : '创建失败');
     } finally {
       setLoading(false);
     }
@@ -159,124 +142,144 @@ export function WorkOrderModal({
       title={workOrder ? '编辑工单' : '新增工单'}
       open={visible}
       onCancel={onCancel}
-      size="large"
+      width={800}
       footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="default" onClick={onCancel}>取消</Button>
-          <Button variant="primary" onClick={handleSubmit} loading={loading}>确定</Button>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button onClick={onCancel}>取消</Button>
+          <Button type="primary" onClick={handleSubmit} loading={loading}>确定</Button>
         </div>
       }
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
-        <div className="border-b border-neutral-200 pb-2 mb-4">
-          <span className="text-sm text-neutral-500">基本信息</span>
+      <Form form={form} layout="vertical">
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>基本信息</span>
         </div>
         
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2">
-            <FormItem
+        <Row gutter={16}>
+          <Col span={16}>
+            <Form.Item
               name="title"
               label="工单标题"
               rules={[{ required: true, message: '请输入工单标题' }]}
             >
               <Input placeholder="请输入工单标题" />
-            </FormItem>
-          </div>
-          <FormItem
-            name="work_order_type"
-            label="工单类型"
-            rules={[{ required: true, message: '请选择工单类型' }]}
-          >
-            <Select 
-              placeholder="请选择工单类型" 
-              options={workOrderTypeOptions} 
-              disabled={!!workOrder}
-            />
-          </FormItem>
-        </div>
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item
+              name="work_order_type"
+              label="工单类型"
+              rules={[{ required: true, message: '请选择工单类型' }]}
+            >
+              <Select 
+                placeholder="请选择工单类型" 
+                options={workOrderTypeOptions} 
+                disabled={!!workOrder}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <FormItem name="description" label="描述">
+        <Form.Item name="description" label="描述">
           <TextArea rows={3} placeholder="请输入工单描述" />
-        </FormItem>
+        </Form.Item>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem
-            name="site_id"
-            label="所属站点"
-            rules={[{ required: true, message: '请选择所属站点' }]}
-          >
-            <Select
-              placeholder="请选择所属站点"
-              onChange={handleSiteChange}
-              disabled={!!workOrder}
-              options={sites.map((site) => ({
-                label: `${site.name} (${site.code})`,
-                value: site.id,
-              }))}
-            />
-          </FormItem>
-          <FormItem
-            name="laboratory_id"
-            label="所属实验室"
-            rules={[{ required: true, message: '请选择所属实验室' }]}
-          >
-            <Select
-              placeholder="请先选择所属站点"
-              disabled={!selectedSiteId || !!workOrder}
-              options={filteredLaboratories.map((lab) => ({
-                label: `${lab.name} (${lab.code})`,
-                value: lab.id,
-              }))}
-            />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="site_id"
+              label="所属站点"
+              rules={[{ required: true, message: '请选择所属站点' }]}
+            >
+              <Select
+                placeholder="请选择所属站点"
+                onChange={handleSiteChange}
+                disabled={!!workOrder}
+                options={sites.map((site) => ({
+                  label: `${site.name} (${site.code})`,
+                  value: site.id,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="laboratory_id"
+              label="所属实验室"
+              rules={[{ required: true, message: '请选择所属实验室' }]}
+            >
+              <Select
+                placeholder="请先选择所属站点"
+                disabled={!selectedSiteId || !!workOrder}
+                options={filteredLaboratories.map((lab) => ({
+                  label: `${lab.name} (${lab.code})`,
+                  value: lab.id,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="border-b border-neutral-200 pb-2 mb-4 mt-6">
-          <span className="text-sm text-neutral-500">客户与优先级</span>
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16, marginTop: 24 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>客户与优先级</span>
         </div>
         
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="client_id" label="客户">
-            <Select
-              placeholder="请选择客户"
-              allowClear
-              options={clients.map((client) => ({
-                label: `${client.name} (${client.code})`,
-                value: client.id,
-              }))}
-            />
-          </FormItem>
-          <FormItem name="testing_source" label="测试来源">
-            <Select placeholder="请选择测试来源" options={testingSourceOptions} />
-          </FormItem>
-          <FormItem name="priority_level" label="优先级">
-            <Select placeholder="请选择优先级" options={priorityOptions} />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="client_id" label="客户">
+              <Select
+                placeholder="请选择客户"
+                allowClear
+                options={clients.map((client) => ({
+                  label: `${client.name} (${client.code})`,
+                  value: client.id,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="testing_source" label="测试来源">
+              <Select placeholder="请选择测试来源" options={testingSourceOptions} />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="priority_level" label="优先级">
+              <Select placeholder="请选择优先级" options={priorityOptions} />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="border-b border-neutral-200 pb-2 mb-4 mt-6">
-          <span className="text-sm text-neutral-500">时间要求</span>
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16, marginTop: 24 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>时间要求</span>
         </div>
         
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="sla_deadline" label="SLA截止时间">
-            <DatePicker 
-              placeholder="SLA截止时间"
-            />
-          </FormItem>
-          <FormItem name="standard_cycle_hours" label="标准周期(小时)">
-            <InputNumber 
-              min={0.1} 
-              step={0.5} 
-              placeholder="标准周期"
-            />
-          </FormItem>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="sla_deadline" label="SLA截止时间">
+              <DatePicker 
+                placeholder="SLA截止时间"
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="standard_cycle_hours" label="标准周期(小时)">
+              <InputNumber 
+                min={0.1} 
+                step={0.5} 
+                placeholder="标准周期"
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </Col>
           {workOrder && (
-            <FormItem name="status" label="状态">
-              <Select placeholder="请选择状态" options={statusOptions} />
-            </FormItem>
+            <Col span={8}>
+              <Form.Item name="status" label="状态">
+                <Select placeholder="请选择状态" options={statusOptions} />
+              </Form.Item>
+            </Col>
           )}
-        </div>
+        </Row>
       </Form>
     </Modal>
   );

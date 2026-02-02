@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
-import { Modal, Input, TextArea, Select, InputNumber, DatePicker, Switch, useToast, useForm, Form, FormItem, type FormInstance } from '../ui';
+import { Modal, Form, Input, Select, InputNumber, DatePicker, Switch, Row, Col, App } from 'antd';
 import { equipmentService } from '../../services/equipmentService';
 import type { Equipment, EquipmentFormData, EquipmentUpdateData, Site, Laboratory } from '../../types';
+
+const { TextArea } = Input;
 
 interface EquipmentModalProps {
   visible: boolean;
@@ -67,39 +69,10 @@ export function EquipmentModal({
   onSuccess,
   onCancel,
 }: EquipmentModalProps) {
-  const [form] = useForm<EquipmentFormValues>({
-    initialValues: {
-      name: '',
-      code: '',
-      equipment_type: '',
-      category: undefined,
-      site_id: undefined as unknown as number,
-      laboratory_id: undefined as unknown as number,
-      model: '',
-      manufacturer: '',
-      serial_number: '',
-      description: '',
-      capacity: undefined,
-      uph: undefined,
-      max_concurrent_tasks: 1,
-      status: undefined,
-      purchase_date: undefined,
-      warranty_expiry: undefined,
-      maintenance_interval_days: undefined,
-      calibration_interval_days: undefined,
-      is_active: true,
-    },
-    rules: {
-      name: [{ required: true, message: '请输入设备名称' }],
-      code: [{ required: true, message: '请输入设备编号' }],
-      equipment_type: [{ required: true, message: '请选择设备类型' }],
-      site_id: [{ required: true, message: '请选择所属站点' }],
-      laboratory_id: [{ required: true, message: '请选择所属实验室' }],
-    },
-  });
+  const [form] = Form.useForm<EquipmentFormValues>();
   const [loading, setLoading] = useState(false);
   const [selectedSiteId, setSelectedSiteId] = useState<number | undefined>();
-  const toast = useToast();
+  const { message } = App.useApp();
 
   const filteredLaboratories = selectedSiteId
     ? laboratories.filter((lab) => lab.site_id === selectedSiteId)
@@ -122,25 +95,21 @@ export function EquipmentModal({
     }
   }, [visible, equipment, form]);
 
-  const handleSiteChange = (value: string | number | (string | number)[]) => {
-    const siteId = Array.isArray(value) ? value[0] as number : value as number;
-    setSelectedSiteId(siteId);
+  const handleSiteChange = (value: number) => {
+    setSelectedSiteId(value);
     const currentLabId = form.getFieldValue('laboratory_id');
     if (currentLabId) {
       const lab = laboratories.find((l) => l.id === currentLabId);
-      if (lab && lab.site_id !== siteId) {
+      if (lab && lab.site_id !== value) {
         form.setFieldValue('laboratory_id', undefined);
       }
     }
   };
 
   const handleSubmit = async () => {
-    const isValid = await form.validateFields();
-    if (!isValid) return;
-
     try {
+      const values = await form.validateFields();
       setLoading(true);
-      const values = form.getFieldsValue();
 
       const formData = {
         ...values,
@@ -150,15 +119,18 @@ export function EquipmentModal({
 
       if (equipment) {
         await equipmentService.updateEquipment(equipment.id, formData as unknown as EquipmentUpdateData);
-        toast.success('更新成功');
+        message.success('更新成功');
       } else {
         await equipmentService.createEquipment(formData as unknown as EquipmentFormData);
-        toast.success('创建成功');
+        message.success('创建成功');
       }
 
       onSuccess();
-    } catch {
-      toast.error(equipment ? '更新失败' : '创建失败');
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'errorFields' in error) {
+        return;
+      }
+      message.error(equipment ? '更新失败' : '创建失败');
     } finally {
       setLoading(false);
     }
@@ -176,114 +148,152 @@ export function EquipmentModal({
       cancelText="取消"
       destroyOnClose
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
-        <div className="border-b border-neutral-200 pb-2 mb-4">
-          <span className="text-sm text-neutral-500">基本信息</span>
+      <Form form={form} layout="vertical">
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>基本信息</span>
         </div>
-        <div className="grid grid-cols-4 gap-4">
-          <FormItem name="name" label="设备名称">
-            <Input placeholder="请输入设备名称" />
-          </FormItem>
-          <FormItem name="code" label="设备编号">
-            <Input placeholder="请输入设备编号" />
-          </FormItem>
-          <FormItem name="equipment_type" label="设备类型">
-            <Select placeholder="请选择设备类型" options={equipmentTypeOptions} />
-          </FormItem>
-          <FormItem name="category" label="设备类别">
-            <Select placeholder="请选择设备类别" options={categoryOptions} allowClear />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={6}>
+            <Form.Item name="name" label="设备名称" rules={[{ required: true, message: '请输入设备名称' }]}>
+              <Input placeholder="请输入设备名称" />
+            </Form.Item>
+          </Col>
+          <Col span={6}>
+            <Form.Item name="code" label="设备编号" rules={[{ required: true, message: '请输入设备编号' }]}>
+              <Input placeholder="请输入设备编号" />
+            </Form.Item>
+          </Col>
+          <Col span={6}>
+            <Form.Item name="equipment_type" label="设备类型" rules={[{ required: true, message: '请选择设备类型' }]}>
+              <Select placeholder="请选择设备类型" options={equipmentTypeOptions} />
+            </Form.Item>
+          </Col>
+          <Col span={6}>
+            <Form.Item name="category" label="设备类别">
+              <Select placeholder="请选择设备类别" options={categoryOptions} allowClear />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="site_id" label="所属站点">
-            <Select
-              placeholder="请选择所属站点"
-              onChange={handleSiteChange}
-              showSearch
-              options={sites.map((site) => ({
-                label: `${site.name} (${site.code})`,
-                value: site.id,
-              }))}
-            />
-          </FormItem>
-          <FormItem name="laboratory_id" label="所属实验室">
-            <Select
-              placeholder="请先选择所属站点"
-              disabled={!selectedSiteId}
-              showSearch
-              options={filteredLaboratories.map((lab) => ({
-                label: `${lab.name} (${lab.code})`,
-                value: lab.id,
-              }))}
-            />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="site_id" label="所属站点" rules={[{ required: true, message: '请选择所属站点' }]}>
+              <Select
+                placeholder="请选择所属站点"
+                onChange={handleSiteChange}
+                showSearch
+                optionFilterProp="label"
+                options={sites.map((site) => ({
+                  label: `${site.name} (${site.code})`,
+                  value: site.id,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="laboratory_id" label="所属实验室" rules={[{ required: true, message: '请选择所属实验室' }]}>
+              <Select
+                placeholder="请先选择所属站点"
+                disabled={!selectedSiteId}
+                showSearch
+                optionFilterProp="label"
+                options={filteredLaboratories.map((lab) => ({
+                  label: `${lab.name} (${lab.code})`,
+                  value: lab.id,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="border-b border-neutral-200 pb-2 mb-4 mt-6">
-          <span className="text-sm text-neutral-500">设备详情</span>
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16, marginTop: 24 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>设备详情</span>
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="model" label="型号">
-            <Input placeholder="请输入型号" />
-          </FormItem>
-          <FormItem name="manufacturer" label="制造商">
-            <Input placeholder="请输入制造商" />
-          </FormItem>
-          <FormItem name="serial_number" label="序列号">
-            <Input placeholder="请输入序列号" />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="model" label="型号">
+              <Input placeholder="请输入型号" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="manufacturer" label="制造商">
+              <Input placeholder="请输入制造商" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="serial_number" label="序列号">
+              <Input placeholder="请输入序列号" />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <FormItem name="description" label="描述">
+        <Form.Item name="description" label="描述">
           <TextArea rows={2} placeholder="请输入设备描述" />
-        </FormItem>
+        </Form.Item>
 
-        <div className="border-b border-neutral-200 pb-2 mb-4 mt-6">
-          <span className="text-sm text-neutral-500">性能参数</span>
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16, marginTop: 24 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>性能参数</span>
         </div>
-        <div className="grid grid-cols-4 gap-4">
-          <FormItem name="capacity" label="容量">
-            <InputNumber min={1} placeholder="最大容量" className="w-full" />
-          </FormItem>
-          <FormItem name="uph" label="UPH (每小时产能)">
-            <InputNumber min={0} step={0.1} placeholder="每小时产能" className="w-full" />
-          </FormItem>
-          <FormItem name="max_concurrent_tasks" label="最大并发任务">
-            <InputNumber min={1} placeholder="并发任务数" className="w-full" />
-          </FormItem>
+        <Row gutter={16}>
+          <Col span={6}>
+            <Form.Item name="capacity" label="容量">
+              <InputNumber min={1} placeholder="最大容量" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+          <Col span={6}>
+            <Form.Item name="uph" label="UPH (每小时产能)">
+              <InputNumber min={0} step={0.1} placeholder="每小时产能" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+          <Col span={6}>
+            <Form.Item name="max_concurrent_tasks" label="最大并发任务">
+              <InputNumber min={1} placeholder="并发任务数" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
           {equipment && (
-            <FormItem name="status" label="状态">
-              <Select placeholder="请选择状态" options={statusOptions} />
-            </FormItem>
+            <Col span={6}>
+              <Form.Item name="status" label="状态">
+                <Select placeholder="请选择状态" options={statusOptions} />
+              </Form.Item>
+            </Col>
           )}
-        </div>
+        </Row>
 
-        <div className="border-b border-neutral-200 pb-2 mb-4 mt-6">
-          <span className="text-sm text-neutral-500">维保信息</span>
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16, marginTop: 24 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>维保信息</span>
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="purchase_date" label="采购日期">
-            <DatePicker className="w-full" placeholder="请选择采购日期" />
-          </FormItem>
-          <FormItem name="warranty_expiry" label="保修到期日">
-            <DatePicker className="w-full" placeholder="请选择保修到期日" />
-          </FormItem>
-          <FormItem name="maintenance_interval_days" label="维护周期(天)">
-            <InputNumber min={1} placeholder="维护周期" className="w-full" />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="purchase_date" label="采购日期">
+              <DatePicker style={{ width: '100%' }} placeholder="请选择采购日期" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="warranty_expiry" label="保修到期日">
+              <DatePicker style={{ width: '100%' }} placeholder="请选择保修到期日" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="maintenance_interval_days" label="维护周期(天)">
+              <InputNumber min={1} placeholder="维护周期" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="calibration_interval_days" label="校准周期(天)">
-            <InputNumber min={1} placeholder="校准周期" className="w-full" />
-          </FormItem>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="calibration_interval_days" label="校准周期(天)">
+              <InputNumber min={1} placeholder="校准周期" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
           {equipment && (
-            <FormItem name="is_active" label="启用状态">
-              <Switch checkedChildren="启用" unCheckedChildren="停用" />
-            </FormItem>
+            <Col span={8}>
+              <Form.Item name="is_active" label="启用状态" valuePropName="checked">
+                <Switch checkedChildren="启用" unCheckedChildren="停用" />
+              </Form.Item>
+            </Col>
           )}
-        </div>
+        </Row>
       </Form>
     </Modal>
   );

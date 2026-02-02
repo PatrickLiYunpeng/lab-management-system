@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, ListBulletIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
-import { Table, Button, Input, Select, Tag, Popconfirm, useToast, type TableColumn, type TablePagination } from '../components/ui';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, UnorderedListOutlined, CalendarOutlined } from '@ant-design/icons';
+import { Table, Button, Input, Select, Tag, Popconfirm, App, Space, Tabs } from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { equipmentService } from '../services/equipmentService';
 import { siteService } from '../services/siteService';
 import { laboratoryService } from '../services/laboratoryService';
@@ -34,8 +35,6 @@ const statusLabels: Record<EquipmentStatus, { text: string; color: 'success' | '
   reserved: { text: '已预约', color: 'purple' },
 };
 
-type TabKey = 'list' | 'schedule';
-
 export default function EquipmentPage() {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
@@ -43,8 +42,8 @@ export default function EquipmentPage() {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>('list');
-  const [pagination, setPagination] = useState<TablePagination>({
+  const [activeTab, setActiveTab] = useState('list');
+  const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
     total: 0,
@@ -61,7 +60,7 @@ export default function EquipmentPage() {
   });
   const [searchValue, setSearchValue] = useState('');
   
-  const toast = useToast();
+  const { message } = App.useApp();
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchEquipment = useCallback(
@@ -87,13 +86,13 @@ export default function EquipmentPage() {
         });
       } catch (err) {
         if (!isAbortError(err)) {
-          toast.error('获取设备列表失败');
+          message.error('获取设备列表失败');
         }
       } finally {
         setLoading(false);
       }
     },
-    [filters, toast]
+    [filters, message]
   );
 
   const fetchSites = useCallback(async () => {
@@ -144,7 +143,7 @@ export default function EquipmentPage() {
     return () => clearTimeout(timer);
   }, [searchValue, filters.search]);
 
-  const handlePaginationChange = (page: number, pageSize: number) => {
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -152,32 +151,27 @@ export default function EquipmentPage() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
     
-    fetchEquipment(page, pageSize, controller.signal);
+    fetchEquipment(paginationConfig.current, paginationConfig.pageSize, controller.signal);
   };
 
-  const handleSiteFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, site_id: v as number | undefined, laboratory_id: undefined }));
+  const handleSiteFilterChange = (value: number | undefined) => {
+    setFilters((prev) => ({ ...prev, site_id: value, laboratory_id: undefined }));
   };
 
-  const handleLabFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, laboratory_id: v as number | undefined }));
+  const handleLabFilterChange = (value: number | undefined) => {
+    setFilters((prev) => ({ ...prev, laboratory_id: value }));
   };
 
-  const handleTypeFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, equipment_type: v as EquipmentType | undefined }));
+  const handleTypeFilterChange = (value: EquipmentType | undefined) => {
+    setFilters((prev) => ({ ...prev, equipment_type: value }));
   };
 
-  const handleCategoryFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, category: v as EquipmentCategory | undefined }));
+  const handleCategoryFilterChange = (value: EquipmentCategory | undefined) => {
+    setFilters((prev) => ({ ...prev, category: value }));
   };
 
-  const handleStatusFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, status: v as EquipmentStatus | undefined }));
+  const handleStatusFilterChange = (value: EquipmentStatus | undefined) => {
+    setFilters((prev) => ({ ...prev, status: value }));
   };
 
   const handleAdd = () => {
@@ -193,10 +187,10 @@ export default function EquipmentPage() {
   const handleDelete = async (id: number) => {
     try {
       await equipmentService.deleteEquipment(id);
-      toast.success('删除成功');
+      message.success('删除成功');
       fetchEquipment(pagination.current, pagination.pageSize);
     } catch {
-      toast.error('删除失败');
+      message.error('删除失败');
     }
   };
 
@@ -220,7 +214,7 @@ export default function EquipmentPage() {
     ? laboratories.filter((lab) => lab.site_id === filters.site_id)
     : laboratories;
 
-  const columns: TableColumn<Equipment>[] = [
+  const columns: ColumnsType<Equipment> = [
     {
       title: '设备名称',
       dataIndex: 'name',
@@ -291,11 +285,11 @@ export default function EquipmentPage() {
       key: 'action',
       width: 150,
       render: (_, record) => (
-        <div className="flex items-center gap-2">
+        <Space>
           <Button
-            variant="link"
+            type="link"
             size="small"
-            icon={<PencilIcon className="w-4 h-4" />}
+            icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
           >
             编辑
@@ -306,62 +300,43 @@ export default function EquipmentPage() {
             onConfirm={() => handleDelete(record.id)}
             okText="确定"
             cancelText="取消"
-            okDanger
+            okButtonProps={{ danger: true }}
           >
-            <Button variant="link" size="small" danger icon={<TrashIcon className="w-4 h-4" />}>
+            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
               删除
             </Button>
           </Popconfirm>
-        </div>
+        </Space>
       ),
     },
   ];
 
-  const tabs = [
-    { key: 'list' as const, label: '设备列表', icon: ListBulletIcon },
-    { key: 'schedule' as const, label: '排程甘特图', icon: CalendarDaysIcon },
-  ];
-
-  return (
-    <div>
-      {/* Tab Navigation */}
-      <div className="mb-4 border-b border-neutral-200">
-        <div className="flex space-x-4">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === tab.key
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* List Tab */}
-      {activeTab === 'list' && (
+  const tabItems = [
+    {
+      key: 'list',
+      label: (
+        <span>
+          <UnorderedListOutlined />
+          设备列表
+        </span>
+      ),
+      children: (
         <div>
-          <div className="mb-4 flex justify-between">
-            <div className="flex items-center gap-4 flex-wrap">
+          <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+            <Space wrap>
               <Input
                 placeholder="搜索设备名称、编号或型号"
-                prefix={<MagnifyingGlassIcon className="w-4 h-4" />}
+                prefix={<SearchOutlined />}
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
-                className="w-[220px]"
+                style={{ width: 220 }}
                 allowClear
               />
               <Select
                 placeholder="站点"
                 value={filters.site_id}
                 onChange={handleSiteFilterChange}
-                className="w-[150px]"
+                style={{ width: 150 }}
                 allowClear
                 options={sites.map((site) => ({
                   label: `${site.name} (${site.code})`,
@@ -372,7 +347,7 @@ export default function EquipmentPage() {
                 placeholder="实验室"
                 value={filters.laboratory_id}
                 onChange={handleLabFilterChange}
-                className="w-[180px]"
+                style={{ width: 180 }}
                 allowClear
                 options={filteredLaboratories.map((lab) => ({
                   label: `${lab.name} (${lab.code})`,
@@ -383,7 +358,7 @@ export default function EquipmentPage() {
                 placeholder="设备类型"
                 value={filters.equipment_type}
                 onChange={handleTypeFilterChange}
-                className="w-[130px]"
+                style={{ width: 130 }}
                 allowClear
                 options={Object.entries(equipmentTypeLabels).map(([value, label]) => ({
                   label,
@@ -394,7 +369,7 @@ export default function EquipmentPage() {
                 placeholder="设备类别"
                 value={filters.category}
                 onChange={handleCategoryFilterChange}
-                className="w-[120px]"
+                style={{ width: 120 }}
                 allowClear
                 options={Object.entries(categoryLabels).map(([value, label]) => ({
                   label,
@@ -405,15 +380,15 @@ export default function EquipmentPage() {
                 placeholder="状态"
                 value={filters.status}
                 onChange={handleStatusFilterChange}
-                className="w-[100px]"
+                style={{ width: 100 }}
                 allowClear
                 options={Object.entries(statusLabels).map(([value, config]) => ({
                   label: config.text,
                   value,
                 }))}
               />
-            </div>
-            <Button variant="primary" icon={<PlusIcon className="w-4 h-4" />} onClick={handleAdd}>
+            </Space>
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
               新增设备
             </Button>
           </div>
@@ -428,8 +403,8 @@ export default function EquipmentPage() {
               showSizeChanger: true,
               showQuickJumper: true,
               showTotal: (total) => `共 ${total} 条`,
-              onChange: handlePaginationChange,
             }}
+            onChange={handleTableChange}
             scroll={{ x: 1300 }}
           />
 
@@ -442,10 +417,27 @@ export default function EquipmentPage() {
             onCancel={handleModalCancel}
           />
         </div>
-      )}
+      ),
+    },
+    {
+      key: 'schedule',
+      label: (
+        <span>
+          <CalendarOutlined />
+          排程甘特图
+        </span>
+      ),
+      children: <EquipmentScheduler />,
+    },
+  ];
 
-      {/* Schedule Tab */}
-      {activeTab === 'schedule' && <EquipmentScheduler />}
+  return (
+    <div>
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={tabItems}
+      />
     </div>
   );
 }

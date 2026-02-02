@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
-import { Modal, Input, TextArea, Select, InputNumber, DatePicker, useToast, useForm, Form, FormItem, type FormInstance } from '../ui';
+import { Modal, Input, Select, InputNumber, DatePicker, Form, Row, Col, App } from 'antd';
 import { materialService } from '../../services/materialService';
 import type { Material, MaterialFormData, MaterialUpdateData, Site, Laboratory, Client } from '../../types';
+
+const { TextArea } = Input;
 
 interface MaterialModalProps {
   visible: boolean;
@@ -69,34 +71,10 @@ export function MaterialModal({
   onSuccess,
   onCancel,
 }: MaterialModalProps) {
-  const [form] = useForm<MaterialFormValues>({
-    initialValues: {
-      material_code: '',
-      name: '',
-      material_type: 'sample',
-      site_id: undefined as unknown as number,
-      laboratory_id: undefined as unknown as number,
-      description: '',
-      storage_location: '',
-      quantity: 1,
-      unit: 'piece',
-      client_id: undefined,
-      client_reference: '',
-      storage_deadline: undefined,
-      processing_deadline: undefined,
-      status: undefined,
-    },
-    rules: {
-      material_code: [{ required: true, message: '请输入物料编码' }],
-      name: [{ required: true, message: '请输入物料名称' }],
-      material_type: [{ required: true, message: '请选择物料类型' }],
-      site_id: [{ required: true, message: '请选择所属站点' }],
-      laboratory_id: [{ required: true, message: '请选择所属实验室' }],
-    },
-  });
+  const [form] = Form.useForm<MaterialFormValues>();
   const [loading, setLoading] = useState(false);
   const [selectedSiteId, setSelectedSiteId] = useState<number | undefined>();
-  const toast = useToast();
+  const { message } = App.useApp();
 
   const filteredLaboratories = selectedSiteId
     ? laboratories.filter((lab) => lab.site_id === selectedSiteId)
@@ -119,43 +97,39 @@ export function MaterialModal({
     }
   }, [visible, material, form]);
 
-  const handleSiteChange = (value: string | number | (string | number)[]) => {
-    const siteId = Array.isArray(value) ? value[0] as number : value as number;
-    setSelectedSiteId(siteId);
+  const handleSiteChange = (value: number) => {
+    setSelectedSiteId(value);
     const currentLabId = form.getFieldValue('laboratory_id');
     if (currentLabId) {
       const lab = laboratories.find((l) => l.id === currentLabId);
-      if (lab && lab.site_id !== siteId) {
+      if (lab && lab.site_id !== value) {
         form.setFieldValue('laboratory_id', undefined);
       }
     }
   };
 
   const handleSubmit = async () => {
-    const isValid = await form.validateFields();
-    if (!isValid) return;
-
     try {
+      const values = await form.validateFields();
       setLoading(true);
-      const values = form.getFieldsValue();
 
       const formData = {
         ...values,
-        storage_deadline: values.storage_deadline ? (values.storage_deadline as dayjs.Dayjs).toISOString() : undefined,
-        processing_deadline: values.processing_deadline ? (values.processing_deadline as dayjs.Dayjs).toISOString() : undefined,
+        storage_deadline: values.storage_deadline ? values.storage_deadline.toISOString() : undefined,
+        processing_deadline: values.processing_deadline ? values.processing_deadline.toISOString() : undefined,
       };
 
       if (material) {
         await materialService.updateMaterial(material.id, formData as unknown as MaterialUpdateData);
-        toast.success('更新成功');
+        message.success('更新成功');
       } else {
         await materialService.createMaterial(formData as unknown as MaterialFormData);
-        toast.success('创建成功');
+        message.success('创建成功');
       }
 
       onSuccess();
     } catch {
-      toast.error(material ? '更新失败' : '创建失败');
+      message.error(material ? '更新失败' : '创建失败');
     } finally {
       setLoading(false);
     }
@@ -173,103 +147,132 @@ export function MaterialModal({
       cancelText="取消"
       destroyOnClose
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
-        <div className="border-b border-neutral-200 pb-2 mb-4">
-          <span className="text-sm text-neutral-500">基本信息</span>
+      <Form form={form} layout="vertical">
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>基本信息</span>
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="material_code" label="物料编码">
-            <Input placeholder="请输入物料编码" disabled={!!material} />
-          </FormItem>
-          <FormItem name="name" label="物料名称">
-            <Input placeholder="请输入物料名称" />
-          </FormItem>
-          <FormItem name="material_type" label="物料类型">
-            <Select placeholder="请选择物料类型" options={materialTypeOptions} disabled={!!material} />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="material_code" label="物料编码" rules={[{ required: true, message: '请输入物料编码' }]}>
+              <Input placeholder="请输入物料编码" disabled={!!material} />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="name" label="物料名称" rules={[{ required: true, message: '请输入物料名称' }]}>
+              <Input placeholder="请输入物料名称" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="material_type" label="物料类型" rules={[{ required: true, message: '请选择物料类型' }]}>
+              <Select placeholder="请选择物料类型" options={materialTypeOptions} disabled={!!material} />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="site_id" label="所属站点">
-            <Select
-              placeholder="请选择所属站点"
-              onChange={handleSiteChange}
-              disabled={!!material}
-              showSearch
-              options={sites.map((site) => ({
-                label: `${site.name} (${site.code})`,
-                value: site.id,
-              }))}
-            />
-          </FormItem>
-          <FormItem name="laboratory_id" label="所属实验室">
-            <Select
-              placeholder="请先选择所属站点"
-              disabled={!selectedSiteId || !!material}
-              showSearch
-              options={filteredLaboratories.map((lab) => ({
-                label: `${lab.name} (${lab.code})`,
-                value: lab.id,
-              }))}
-            />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="site_id" label="所属站点" rules={[{ required: true, message: '请选择所属站点' }]}>
+              <Select
+                placeholder="请选择所属站点"
+                onChange={handleSiteChange}
+                disabled={!!material}
+                showSearch
+                optionFilterProp="label"
+                options={sites.map((site) => ({
+                  label: `${site.name} (${site.code})`,
+                  value: site.id,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="laboratory_id" label="所属实验室" rules={[{ required: true, message: '请选择所属实验室' }]}>
+              <Select
+                placeholder="请先选择所属站点"
+                disabled={!selectedSiteId || !!material}
+                showSearch
+                optionFilterProp="label"
+                options={filteredLaboratories.map((lab) => ({
+                  label: `${lab.name} (${lab.code})`,
+                  value: lab.id,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <FormItem name="description" label="描述">
+        <Form.Item name="description" label="描述">
           <TextArea rows={2} placeholder="请输入物料描述" />
-        </FormItem>
+        </Form.Item>
 
-        <div className="border-b border-neutral-200 pb-2 mb-4 mt-6">
-          <span className="text-sm text-neutral-500">存储与数量</span>
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16, marginTop: 24 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>存储与数量</span>
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="storage_location" label="存储位置">
-            <Input placeholder="请输入存储位置" />
-          </FormItem>
-          <FormItem name="quantity" label="数量">
-            <InputNumber min={1} placeholder="数量" className="w-full" />
-          </FormItem>
-          <FormItem name="unit" label="单位">
-            <Select placeholder="请选择单位" options={unitOptions} />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="storage_location" label="存储位置">
+              <Input placeholder="请输入存储位置" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="quantity" label="数量">
+              <InputNumber min={1} placeholder="数量" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="unit" label="单位">
+              <Select placeholder="请选择单位" options={unitOptions} />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="border-b border-neutral-200 pb-2 mb-4 mt-6">
-          <span className="text-sm text-neutral-500">客户信息</span>
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16, marginTop: 24 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>客户信息</span>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="client_id" label="客户">
-            <Select
-              placeholder="请选择客户"
-              allowClear
-              showSearch
-              options={clients.map((client) => ({
-                label: `${client.name} (${client.code})`,
-                value: client.id,
-              }))}
-            />
-          </FormItem>
-          <FormItem name="client_reference" label="客户参考号">
-            <Input placeholder="客户的参考编号" />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="client_id" label="客户">
+              <Select
+                placeholder="请选择客户"
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                options={clients.map((client) => ({
+                  label: `${client.name} (${client.code})`,
+                  value: client.id,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="client_reference" label="客户参考号">
+              <Input placeholder="客户的参考编号" />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="border-b border-neutral-200 pb-2 mb-4 mt-6">
-          <span className="text-sm text-neutral-500">时间要求</span>
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16, marginTop: 24 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>时间要求</span>
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="storage_deadline" label="存储期限">
-            <DatePicker className="w-full" placeholder="存储截止日期" />
-          </FormItem>
-          <FormItem name="processing_deadline" label="处理期限">
-            <DatePicker className="w-full" placeholder="处理截止日期" />
-          </FormItem>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="storage_deadline" label="存储期限">
+              <DatePicker style={{ width: '100%' }} placeholder="存储截止日期" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="processing_deadline" label="处理期限">
+              <DatePicker style={{ width: '100%' }} placeholder="处理截止日期" />
+            </Form.Item>
+          </Col>
           {material && (
-            <FormItem name="status" label="状态">
-              <Select placeholder="请选择状态" options={statusOptions} />
-            </FormItem>
+            <Col span={8}>
+              <Form.Item name="status" label="状态">
+                <Select placeholder="请选择状态" options={statusOptions} />
+              </Form.Item>
+            </Col>
           )}
-        </div>
+        </Row>
       </Form>
     </Modal>
   );

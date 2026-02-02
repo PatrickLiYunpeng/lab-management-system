@@ -1,19 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserIcon, LockClosedIcon } from '@heroicons/react/24/outline';
-import { Button, Input, useToast } from '../components/ui';
+import { Form, Input, Button, Card, App } from 'antd';
+import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useAuthStore } from '../stores/authStore';
 import { getRoleHomePage } from '../utils/permissions';
 import type { LoginRequest } from '../types';
 
 export function LoginPage() {
   const [loading, setLoading] = useState(false);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ username?: string; password?: string }>({});
+  const [form] = Form.useForm();
   const navigate = useNavigate();
   const { login, isAuthenticated, user } = useAuthStore();
-  const toast = useToast();
+  const { message } = App.useApp();
 
   // Redirect authenticated users to their role-appropriate home page
   useEffect(() => {
@@ -23,86 +21,79 @@ export function LoginPage() {
     }
   }, [isAuthenticated, user, navigate]);
 
-  const validate = (): boolean => {
-    const newErrors: { username?: string; password?: string } = {};
-    if (!username.trim()) {
-      newErrors.username = 'Please input your username';
-    }
-    if (!password) {
-      newErrors.password = 'Please input your password';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-
+  const handleSubmit = async (values: LoginRequest) => {
     setLoading(true);
     try {
-      const values: LoginRequest = { username, password };
       const response = await login(values);
-      toast.success('登录成功');
+      message.success('登录成功');
       // Redirect to role-appropriate home page
       const homePage = getRoleHomePage(response.user.role);
       navigate(homePage);
     } catch {
-      toast.error('用户名或密码错误');
+      message.error('用户名或密码错误');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-400 to-primary-700">
-      <div className="w-96 bg-white rounded-lg shadow-xl p-8">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-neutral-800 mb-2">
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    }}>
+      <Card style={{ width: 400, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#262626', marginBottom: 8 }}>
             Lab Management System
           </h1>
-          <p className="text-neutral-500">
+          <p style={{ color: '#8c8c8c' }}>
             Sign in to your account
           </p>
         </div>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <Input
-              prefix={<UserIcon className="w-5 h-5 text-neutral-400" />}
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full"
-            />
-            {errors.username && (
-              <p className="mt-1 text-sm text-error-500">{errors.username}</p>
-            )}
-          </div>
-
-          <div className="mb-6">
-            <Input
-              type="password"
-              prefix={<LockClosedIcon className="w-5 h-5 text-neutral-400" />}
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full"
-            />
-            {errors.password && (
-              <p className="mt-1 text-sm text-error-500">{errors.password}</p>
-            )}
-          </div>
-
-          <Button
-            type="submit"
-            variant="primary"
-            loading={loading}
-            className="w-full"
+        <Form
+          form={form}
+          onFinish={handleSubmit}
+          layout="vertical"
+          requiredMark={false}
+        >
+          <Form.Item
+            name="username"
+            rules={[{ required: true, message: 'Please input your username' }]}
           >
-            Sign In
-          </Button>
-        </form>
-      </div>
+            <Input
+              prefix={<UserOutlined style={{ color: '#bfbfbf' }} />}
+              placeholder="Username"
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="password"
+            rules={[{ required: true, message: 'Please input your password' }]}
+          >
+            <Input.Password
+              prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
+              placeholder="Password"
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={loading}
+              block
+              size="large"
+            >
+              Sign In
+            </Button>
+          </Form.Item>
+        </Form>
+      </Card>
     </div>
   );
 }

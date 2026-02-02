@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, DocumentArrowDownIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { Table, Button, Input, Select, Tag, Switch, Progress, Popconfirm, useToast, type TableColumn, type TablePagination } from '../components/ui';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, DownloadOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
+import { Table, Button, Input, Select, Tag, Switch, Progress, Popconfirm, App, Space } from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { workOrderService } from '../services/workOrderService';
 import { laboratoryService } from '../services/laboratoryService';
 import { siteService } from '../services/siteService';
@@ -35,7 +36,7 @@ export default function WorkOrdersPage() {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null);
-  const [pagination, setPagination] = useState<TablePagination>({
+  const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
     total: 0,
@@ -52,9 +53,9 @@ export default function WorkOrdersPage() {
     overdue_only: false,
   });
   const [searchValue, setSearchValue] = useState('');
-  const [expandedRowKeys, setExpandedRowKeys] = useState<number[]>([]);
+  const [expandedRowKeys, setExpandedRowKeys] = useState<React.Key[]>([]);
   
-  const toast = useToast();
+  const { message } = App.useApp();
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchWorkOrders = useCallback(
@@ -80,13 +81,13 @@ export default function WorkOrdersPage() {
         });
       } catch (err) {
         if (!isAbortError(err)) {
-          toast.error('获取工单列表失败');
+          message.error('获取工单列表失败');
         }
       } finally {
         setLoading(false);
       }
     },
-    [filters, toast]
+    [filters, message]
   );
 
   const fetchSites = useCallback(async () => {
@@ -146,28 +147,24 @@ export default function WorkOrdersPage() {
     return () => clearTimeout(timer);
   }, [searchValue, filters.search]);
 
-  const handlePaginationChange = (page: number, pageSize: number) => {
-    fetchWorkOrders(page, pageSize);
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
+    fetchWorkOrders(paginationConfig.current, paginationConfig.pageSize);
   };
 
-  const handleLabFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, laboratory_id: v as number | undefined }));
+  const handleLabFilterChange = (value: number | undefined) => {
+    setFilters((prev) => ({ ...prev, laboratory_id: value }));
   };
 
-  const handleClientFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, client_id: v as number | undefined }));
+  const handleClientFilterChange = (value: number | undefined) => {
+    setFilters((prev) => ({ ...prev, client_id: value }));
   };
 
-  const handleTypeFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, work_order_type: v as WorkOrderType | undefined }));
+  const handleTypeFilterChange = (value: WorkOrderType | undefined) => {
+    setFilters((prev) => ({ ...prev, work_order_type: value }));
   };
 
-  const handleStatusFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, status: v as WorkOrderStatus | undefined }));
+  const handleStatusFilterChange = (value: WorkOrderStatus | undefined) => {
+    setFilters((prev) => ({ ...prev, status: value }));
   };
 
   const handleOverdueFilterChange = (checked: boolean) => {
@@ -187,10 +184,10 @@ export default function WorkOrdersPage() {
   const handleDelete = async (id: number) => {
     try {
       await workOrderService.deleteWorkOrder(id);
-      toast.success('删除成功');
+      message.success('删除成功');
       fetchWorkOrders(pagination.current, pagination.pageSize);
     } catch {
-      toast.error('删除失败，只能删除草稿或已取消的工单');
+      message.error('删除失败，只能删除草稿或已取消的工单');
     }
   };
 
@@ -207,33 +204,27 @@ export default function WorkOrdersPage() {
 
   const handleExportPdf = async () => {
     try {
-      toast.info('正在生成PDF报告...');
+      message.info('正在生成PDF报告...');
       await reportService.exportWorkOrdersPdf({
         laboratory_id: filters.laboratory_id,
         work_order_type: filters.work_order_type,
         status: filters.status,
         client_id: filters.client_id,
       });
-      toast.success('PDF报告已下载');
+      message.success('PDF报告已下载');
     } catch {
-      toast.error('导出PDF失败');
+      message.error('导出PDF失败');
     }
   };
 
   const handleExportSinglePdf = async (workOrderId: number) => {
     try {
-      toast.info('正在生成PDF报告...');
+      message.info('正在生成PDF报告...');
       await reportService.exportWorkOrderDetailPdf(workOrderId);
-      toast.success('PDF报告已下载');
+      message.success('PDF报告已下载');
     } catch {
-      toast.error('导出PDF失败');
+      message.error('导出PDF失败');
     }
-  };
-
-  const toggleRowExpanded = (id: number) => {
-    setExpandedRowKeys((prev) =>
-      prev.includes(id) ? prev.filter((key) => key !== id) : [...prev, id]
-    );
   };
 
   const getLabName = (labId: number) => {
@@ -247,24 +238,7 @@ export default function WorkOrdersPage() {
     return client ? client.name : '-';
   };
 
-  const columns: TableColumn<WorkOrder>[] = [
-    {
-      title: '',
-      key: 'expand',
-      width: 40,
-      render: (_, record) => (
-        <button
-          onClick={() => toggleRowExpanded(record.id)}
-          className="p-1 hover:bg-neutral-100 rounded"
-        >
-          {expandedRowKeys.includes(record.id) ? (
-            <ChevronDownIcon className="w-4 h-4 text-neutral-500" />
-          ) : (
-            <ChevronRightIcon className="w-4 h-4 text-neutral-500" />
-          )}
-        </button>
-      ),
-    },
+  const columns: ColumnsType<WorkOrder> = [
     {
       title: '工单号',
       dataIndex: 'order_number',
@@ -303,13 +277,14 @@ export default function WorkOrdersPage() {
       key: 'priority',
       width: 100,
       render: (_, record) => (
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Progress
             percent={record.priority_score}
             size="small"
             status={record.priority_score > 70 ? 'exception' : record.priority_score > 50 ? 'active' : 'success'}
+            style={{ width: 60 }}
           />
-          <span className="text-xs text-neutral-500">P{record.priority_level}</span>
+          <span style={{ fontSize: 12, color: '#666' }}>P{record.priority_level}</span>
         </div>
       ),
     },
@@ -336,19 +311,19 @@ export default function WorkOrdersPage() {
       key: 'action',
       width: 180,
       render: (_, record) => (
-        <div className="flex items-center gap-1">
+        <Space size={4}>
           <Button
-            variant="link"
+            type="link"
             size="small"
-            icon={<PencilIcon className="w-4 h-4" />}
+            icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
           >
             编辑
           </Button>
           <Button
-            variant="link"
+            type="link"
             size="small"
-            icon={<DocumentArrowDownIcon className="w-4 h-4" />}
+            icon={<DownloadOutlined />}
             onClick={() => handleExportSinglePdf(record.id)}
           >
             PDF
@@ -360,35 +335,35 @@ export default function WorkOrdersPage() {
               onConfirm={() => handleDelete(record.id)}
               okText="确定"
               cancelText="取消"
-              okDanger
+              okButtonProps={{ danger: true }}
             >
-              <Button variant="link" size="small" danger icon={<TrashIcon className="w-4 h-4" />}>
+              <Button type="link" size="small" danger icon={<DeleteOutlined />}>
                 删除
               </Button>
             </Popconfirm>
           )}
-        </div>
+        </Space>
       ),
     },
   ];
 
   return (
     <div>
-      <div className="mb-4 flex justify-between">
-        <div className="flex items-center gap-4 flex-wrap">
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+        <Space wrap>
           <Input
             placeholder="搜索工单号或标题"
-            prefix={<MagnifyingGlassIcon className="w-4 h-4" />}
+            prefix={<SearchOutlined />}
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            className="w-[200px]"
+            style={{ width: 200 }}
             allowClear
           />
           <Select
             placeholder="实验室"
             value={filters.laboratory_id}
             onChange={handleLabFilterChange}
-            className="w-[160px]"
+            style={{ width: 160 }}
             allowClear
             options={laboratories.map((lab) => ({
               label: `${lab.name} (${lab.code})`,
@@ -399,7 +374,7 @@ export default function WorkOrdersPage() {
             placeholder="客户"
             value={filters.client_id}
             onChange={handleClientFilterChange}
-            className="w-[140px]"
+            style={{ width: 140 }}
             allowClear
             options={clients.map((client) => ({
               label: client.name,
@@ -410,7 +385,7 @@ export default function WorkOrdersPage() {
             placeholder="类型"
             value={filters.work_order_type}
             onChange={handleTypeFilterChange}
-            className="w-[110px]"
+            style={{ width: 110 }}
             allowClear
             options={Object.entries(workOrderTypeLabels).map(([value, label]) => ({
               label,
@@ -421,30 +396,30 @@ export default function WorkOrdersPage() {
             placeholder="状态"
             value={filters.status}
             onChange={handleStatusFilterChange}
-            className="w-[100px]"
+            style={{ width: 100 }}
             allowClear
             options={Object.entries(statusLabels).map(([value, config]) => ({
               label: config.text,
               value,
             }))}
           />
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-neutral-600">仅逾期:</span>
+          <Space>
+            <span style={{ fontSize: 14, color: '#666' }}>仅逾期:</span>
             <Switch
               checked={filters.overdue_only}
               onChange={handleOverdueFilterChange}
               size="small"
             />
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button icon={<DocumentArrowDownIcon className="w-4 h-4" />} onClick={handleExportPdf}>
+          </Space>
+        </Space>
+        <Space>
+          <Button icon={<DownloadOutlined />} onClick={handleExportPdf}>
             导出PDF
           </Button>
-          <Button variant="primary" icon={<PlusIcon className="w-4 h-4" />} onClick={handleAdd}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
             新增工单
           </Button>
-        </div>
+        </Space>
       </div>
 
       <Table
@@ -457,19 +432,28 @@ export default function WorkOrdersPage() {
           showSizeChanger: true,
           showQuickJumper: true,
           showTotal: (total) => `共 ${total} 条`,
-          onChange: handlePaginationChange,
         }}
+        onChange={handleTableChange}
         scroll={{ x: 1300 }}
         expandable={{
-          expandedRowKeys: expandedRowKeys.map(String),
-          onExpandedRowsChange: (keys) => setExpandedRowKeys(keys.map(Number)),
+          expandedRowKeys,
+          onExpandedRowsChange: (keys) => setExpandedRowKeys([...keys]),
           expandedRowRender: (record) => (
-            <div className="p-2 bg-neutral-50">
+            <div style={{ padding: 8, backgroundColor: '#fafafa' }}>
               <SubTaskManager
                 workOrder={record}
                 onTasksChange={() => fetchWorkOrders(pagination.current, pagination.pageSize)}
               />
             </div>
+          ),
+          expandIcon: ({ expanded, onExpand, record }) => (
+            <Button
+              type="text"
+              size="small"
+              onClick={(e) => onExpand(record, e)}
+              icon={expanded ? <DownOutlined /> : <RightOutlined />}
+              style={{ color: '#666' }}
+            />
           ),
         }}
       />

@@ -1,28 +1,16 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  MagnifyingGlassIcon,
-  InformationCircleIcon,
-  ClockIcon,
-  ExclamationCircleIcon,
-} from '@heroicons/react/24/outline';
+  SearchOutlined,
+  InfoCircleOutlined,
+  ClockCircleOutlined,
+  ExclamationCircleOutlined,
+} from '@ant-design/icons';
 import { workOrderService } from '../services/workOrderService';
 import { laboratoryService } from '../services/laboratoryService';
 import { materialService } from '../services/materialService';
 import type { WorkOrder, Laboratory, Client, WorkOrderType, WorkOrderStatus, WorkOrderTask } from '../types';
-import {
-  Button,
-  Input,
-  Select,
-  Switch,
-  Table,
-  Tag,
-  Modal,
-  Tooltip,
-  Progress,
-  useToast,
-  type TableColumn,
-  type TablePagination,
-} from '../components/ui';
+import { App, Button, Input, Select, Switch, Table, Tag, Modal, Tooltip, Progress, Card } from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 
 const workOrderTypeLabels: Record<WorkOrderType, string> = {
   failure_analysis: '失效分析',
@@ -59,7 +47,7 @@ const statusOptions = [
 ];
 
 export default function WorkOrderQueryPage() {
-  const toast = useToast();
+  const { message } = App.useApp();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -117,7 +105,7 @@ export default function WorkOrderQueryPage() {
       } catch {
         if (isMountedRef.current && !errorShownRef.current) {
           errorShownRef.current = true;
-          toast.error('获取工单列表失败');
+          message.error('获取工单列表失败');
         }
       } finally {
         if (isMountedRef.current) {
@@ -125,7 +113,7 @@ export default function WorkOrderQueryPage() {
         }
       }
     },
-    [filters, toast]
+    [filters, message]
   );
 
   const fetchLaboratories = useCallback(async () => {
@@ -156,11 +144,11 @@ export default function WorkOrderQueryPage() {
       const taskList = await workOrderService.getTasks(workOrderId);
       setTasks(taskList);
     } catch {
-      toast.error('获取任务列表失败');
+      message.error('获取任务列表失败');
     } finally {
       setTasksLoading(false);
     }
-  }, [toast]);
+  }, [message]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -185,36 +173,32 @@ export default function WorkOrderQueryPage() {
     return () => clearTimeout(timer);
   }, [searchValue, filters.search]);
 
-  const handleTableChange = (paginationConfig: TablePagination) => {
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
     fetchWorkOrders(
       paginationConfig.current || 1,
       paginationConfig.pageSize || 10
     );
   };
 
-  const handleLabFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, laboratory_id: v ? Number(v) : undefined }));
+  const handleLabFilterChange = (value: number | undefined) => {
+    setFilters((prev) => ({ ...prev, laboratory_id: value || undefined }));
   };
 
-  const handleClientFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, client_id: v ? Number(v) : undefined }));
+  const handleClientFilterChange = (value: number | undefined) => {
+    setFilters((prev) => ({ ...prev, client_id: value || undefined }));
   };
 
-  const handleTypeFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
+  const handleTypeFilterChange = (value: string) => {
     setFilters((prev) => ({ 
       ...prev, 
-      work_order_type: v ? String(v) as WorkOrderType : undefined 
+      work_order_type: value ? value as WorkOrderType : undefined 
     }));
   };
 
-  const handleStatusFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
+  const handleStatusFilterChange = (value: string) => {
     setFilters((prev) => ({ 
       ...prev, 
-      status: v ? String(v) as WorkOrderStatus : undefined 
+      status: value ? value as WorkOrderStatus : undefined 
     }));
   };
 
@@ -251,20 +235,20 @@ export default function WorkOrderQueryPage() {
     return new Date(record.sla_deadline) < new Date();
   };
 
-  const columns: TableColumn<WorkOrder>[] = [
+  const columns: ColumnsType<WorkOrder> = [
     {
       title: '工单号',
       dataIndex: 'order_number',
       key: 'order_number',
       width: 160,
-      render: (text: unknown, record) => (
-        <div className="flex items-center gap-1.5">
+      render: (text: string, record) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {isOverdue(record) && (
             <Tooltip title="已逾期">
-              <ExclamationCircleIcon className="w-4 h-4 text-error-500" />
+              <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
             </Tooltip>
           )}
-          <span className="font-medium text-neutral-900">{String(text)}</span>
+          <span style={{ fontWeight: 500, color: '#333' }}>{text}</span>
         </div>
       ),
     },
@@ -279,9 +263,9 @@ export default function WorkOrderQueryPage() {
       dataIndex: 'work_order_type',
       key: 'work_order_type',
       width: 100,
-      render: (type: unknown) => (
+      render: (type: WorkOrderType) => (
         <Tag color={type === 'failure_analysis' ? 'warning' : 'blue'}>
-          {workOrderTypeLabels[type as WorkOrderType] || String(type)}
+          {workOrderTypeLabels[type] || type}
         </Tag>
       ),
     },
@@ -290,30 +274,30 @@ export default function WorkOrderQueryPage() {
       dataIndex: 'laboratory_id',
       key: 'laboratory_id',
       width: 120,
-      render: (labId: unknown) => getLabName(Number(labId)),
+      render: (labId: number) => getLabName(labId),
     },
     {
       title: '客户',
       dataIndex: 'client_id',
       key: 'client_id',
       width: 120,
-      render: (clientId: unknown) => getClientName(clientId ? Number(clientId) : undefined),
+      render: (clientId: number | undefined) => getClientName(clientId),
     },
     {
       title: '优先级',
       key: 'priority',
       width: 100,
-      render: (_: unknown, record) => (
+      render: (_, record) => (
         <Progress
           percent={record.priority_score}
           size="small"
           format={() => `P${record.priority_level}`}
           strokeColor={
             record.priority_score > 70
-              ? 'error'
+              ? '#ff4d4f'
               : record.priority_score > 50
-              ? 'warning'
-              : 'success'
+              ? '#faad14'
+              : '#52c41a'
           }
         />
       ),
@@ -323,8 +307,8 @@ export default function WorkOrderQueryPage() {
       dataIndex: 'status',
       key: 'status',
       width: 90,
-      render: (status: unknown) => {
-        const config = statusLabels[status as WorkOrderStatus] || { text: String(status), color: 'default' as const };
+      render: (status: WorkOrderStatus) => {
+        const config = statusLabels[status] || { text: status, color: 'default' as const };
         return <Tag color={config.color}>{config.text}</Tag>;
       },
     },
@@ -333,13 +317,13 @@ export default function WorkOrderQueryPage() {
       dataIndex: 'sla_deadline',
       key: 'sla_deadline',
       width: 110,
-      render: (date: unknown, record) => {
+      render: (date: string, record) => {
         if (!date) return '-';
-        const formattedDate = new Date(String(date)).toLocaleDateString('zh-CN');
+        const formattedDate = new Date(date).toLocaleDateString('zh-CN');
         const overdue = isOverdue(record);
         return (
-          <span className={overdue ? 'text-error-500 flex items-center gap-1' : ''}>
-            {overdue && <ClockIcon className="w-3.5 h-3.5" />}
+          <span style={overdue ? { color: '#ff4d4f', display: 'flex', alignItems: 'center', gap: 4 } : undefined}>
+            {overdue && <ClockCircleOutlined style={{ fontSize: 14 }} />}
             {formattedDate}
           </span>
         );
@@ -350,18 +334,18 @@ export default function WorkOrderQueryPage() {
       dataIndex: 'created_at',
       key: 'created_at',
       width: 110,
-      render: (date: unknown) => new Date(String(date)).toLocaleDateString('zh-CN'),
+      render: (date: string) => new Date(date).toLocaleDateString('zh-CN'),
     },
     {
       title: '操作',
       key: 'action',
       width: 80,
       fixed: 'right',
-      render: (_: unknown, record) => (
+      render: (_, record) => (
         <Button
-          variant="link"
+          type="link"
           size="small"
-          icon={<InformationCircleIcon className="w-4 h-4" />}
+          icon={<InfoCircleOutlined />}
           onClick={() => handleViewDetail(record)}
         >
           详情
@@ -370,7 +354,7 @@ export default function WorkOrderQueryPage() {
     },
   ];
 
-  const taskColumns: TableColumn<WorkOrderTask>[] = [
+  const taskColumns: ColumnsType<WorkOrderTask> = [
     {
       title: '任务号',
       dataIndex: 'task_number',
@@ -388,7 +372,7 @@ export default function WorkOrderQueryPage() {
       dataIndex: 'status',
       key: 'status',
       width: 100,
-      render: (status: unknown) => {
+      render: (status: string) => {
         const colors: Record<string, 'warning' | 'blue' | 'processing' | 'success' | 'error' | 'default'> = {
           pending: 'warning',
           assigned: 'blue',
@@ -405,8 +389,7 @@ export default function WorkOrderQueryPage() {
           blocked: '已阻塞',
           cancelled: '已取消',
         };
-        const statusStr = String(status);
-        return <Tag color={colors[statusStr] || 'default'}>{labels[statusStr] || statusStr}</Tag>;
+        return <Tag color={colors[status] || 'default'}>{labels[status] || status}</Tag>;
       },
     },
     {
@@ -414,18 +397,18 @@ export default function WorkOrderQueryPage() {
       dataIndex: 'method',
       key: 'method',
       width: 150,
-      render: (_: unknown, record) => (record.method as { name?: string } | undefined)?.name || '-',
+      render: (_, record) => (record.method as { name?: string } | undefined)?.name || '-',
     },
   ];
 
   return (
     <div>
-      <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-4 mb-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div className="lg:col-span-2">
+      <Card style={{ marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 16 }}>
+          <div style={{ gridColumn: 'span 2' }}>
             <Input
               placeholder="搜索工单号或标题"
-              prefix={<MagnifyingGlassIcon className="w-4 h-4 text-neutral-400" />}
+              prefix={<SearchOutlined style={{ color: '#999' }} />}
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               allowClear
@@ -437,8 +420,9 @@ export default function WorkOrderQueryPage() {
               value={filters.laboratory_id}
               onChange={handleLabFilterChange}
               allowClear
+              style={{ width: '100%' }}
               options={[
-                { value: '', label: '全部实验室' },
+                { value: undefined, label: '全部实验室' },
                 ...laboratories.map((lab) => ({
                   label: `${lab.name} (${lab.code})`,
                   value: lab.id,
@@ -452,8 +436,9 @@ export default function WorkOrderQueryPage() {
               value={filters.client_id}
               onChange={handleClientFilterChange}
               allowClear
+              style={{ width: '100%' }}
               options={[
-                { value: '', label: '全部客户' },
+                { value: undefined, label: '全部客户' },
                 ...clients.map((client) => ({
                   label: client.name,
                   value: client.id,
@@ -466,6 +451,7 @@ export default function WorkOrderQueryPage() {
               value={filters.work_order_type || ''}
               onChange={handleTypeFilterChange}
               options={typeOptions}
+              style={{ width: '100%' }}
             />
           </div>
           <div>
@@ -473,17 +459,18 @@ export default function WorkOrderQueryPage() {
               value={filters.status || ''}
               onChange={handleStatusFilterChange}
               options={statusOptions}
+              style={{ width: '100%' }}
             />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-neutral-600">仅显示逾期:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 14, color: '#666' }}>仅显示逾期:</span>
             <Switch
               checked={filters.overdue_only}
               onChange={handleOverdueFilterChange}
             />
           </div>
         </div>
-      </div>
+      </Card>
 
       <Table
         columns={columns}
@@ -507,71 +494,71 @@ export default function WorkOrderQueryPage() {
         open={detailModalVisible}
         onCancel={handleCloseDetail}
         footer={null}
-        size="large"
+        width={800}
       >
         {selectedWorkOrder && (
           <div>
-            <div className="grid grid-cols-2 gap-4 border border-neutral-200 rounded-lg overflow-hidden">
-              <div className="flex border-b border-neutral-200">
-                <div className="w-24 px-3 py-2 bg-neutral-50 text-sm text-neutral-500 font-medium">工单号</div>
-                <div className="flex-1 px-3 py-2 text-sm">{selectedWorkOrder.order_number}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', border: '1px solid #f0f0f0', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ width: 96, padding: '8px 12px', backgroundColor: '#fafafa', fontSize: 14, color: '#999', fontWeight: 500 }}>工单号</div>
+                <div style={{ flex: 1, padding: '8px 12px', fontSize: 14 }}>{selectedWorkOrder.order_number}</div>
               </div>
-              <div className="flex border-b border-neutral-200">
-                <div className="w-24 px-3 py-2 bg-neutral-50 text-sm text-neutral-500 font-medium">标题</div>
-                <div className="flex-1 px-3 py-2 text-sm">{selectedWorkOrder.title}</div>
+              <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ width: 96, padding: '8px 12px', backgroundColor: '#fafafa', fontSize: 14, color: '#999', fontWeight: 500 }}>标题</div>
+                <div style={{ flex: 1, padding: '8px 12px', fontSize: 14 }}>{selectedWorkOrder.title}</div>
               </div>
-              <div className="flex border-b border-neutral-200">
-                <div className="w-24 px-3 py-2 bg-neutral-50 text-sm text-neutral-500 font-medium">类型</div>
-                <div className="flex-1 px-3 py-2">
+              <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ width: 96, padding: '8px 12px', backgroundColor: '#fafafa', fontSize: 14, color: '#999', fontWeight: 500 }}>类型</div>
+                <div style={{ flex: 1, padding: '8px 12px' }}>
                   <Tag color={selectedWorkOrder.work_order_type === 'failure_analysis' ? 'warning' : 'blue'}>
                     {workOrderTypeLabels[selectedWorkOrder.work_order_type]}
                   </Tag>
                 </div>
               </div>
-              <div className="flex border-b border-neutral-200">
-                <div className="w-24 px-3 py-2 bg-neutral-50 text-sm text-neutral-500 font-medium">状态</div>
-                <div className="flex-1 px-3 py-2">
+              <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ width: 96, padding: '8px 12px', backgroundColor: '#fafafa', fontSize: 14, color: '#999', fontWeight: 500 }}>状态</div>
+                <div style={{ flex: 1, padding: '8px 12px' }}>
                   <Tag color={statusLabels[selectedWorkOrder.status]?.color}>
                     {statusLabels[selectedWorkOrder.status]?.text}
                   </Tag>
                 </div>
               </div>
-              <div className="flex border-b border-neutral-200">
-                <div className="w-24 px-3 py-2 bg-neutral-50 text-sm text-neutral-500 font-medium">实验室</div>
-                <div className="flex-1 px-3 py-2 text-sm">{getLabName(selectedWorkOrder.laboratory_id)}</div>
+              <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ width: 96, padding: '8px 12px', backgroundColor: '#fafafa', fontSize: 14, color: '#999', fontWeight: 500 }}>实验室</div>
+                <div style={{ flex: 1, padding: '8px 12px', fontSize: 14 }}>{getLabName(selectedWorkOrder.laboratory_id)}</div>
               </div>
-              <div className="flex border-b border-neutral-200">
-                <div className="w-24 px-3 py-2 bg-neutral-50 text-sm text-neutral-500 font-medium">客户</div>
-                <div className="flex-1 px-3 py-2 text-sm">{getClientName(selectedWorkOrder.client_id)}</div>
+              <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ width: 96, padding: '8px 12px', backgroundColor: '#fafafa', fontSize: 14, color: '#999', fontWeight: 500 }}>客户</div>
+                <div style={{ flex: 1, padding: '8px 12px', fontSize: 14 }}>{getClientName(selectedWorkOrder.client_id)}</div>
               </div>
-              <div className="flex border-b border-neutral-200">
-                <div className="w-24 px-3 py-2 bg-neutral-50 text-sm text-neutral-500 font-medium">优先级</div>
-                <div className="flex-1 px-3 py-2 text-sm">P{selectedWorkOrder.priority_level} ({selectedWorkOrder.priority_score}分)</div>
+              <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ width: 96, padding: '8px 12px', backgroundColor: '#fafafa', fontSize: 14, color: '#999', fontWeight: 500 }}>优先级</div>
+                <div style={{ flex: 1, padding: '8px 12px', fontSize: 14 }}>P{selectedWorkOrder.priority_level} ({selectedWorkOrder.priority_score}分)</div>
               </div>
-              <div className="flex border-b border-neutral-200">
-                <div className="w-24 px-3 py-2 bg-neutral-50 text-sm text-neutral-500 font-medium">SLA截止</div>
-                <div className="flex-1 px-3 py-2 text-sm">
+              <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ width: 96, padding: '8px 12px', backgroundColor: '#fafafa', fontSize: 14, color: '#999', fontWeight: 500 }}>SLA截止</div>
+                <div style={{ flex: 1, padding: '8px 12px', fontSize: 14 }}>
                   {selectedWorkOrder.sla_deadline
                     ? new Date(selectedWorkOrder.sla_deadline).toLocaleString('zh-CN')
                     : '-'}
                 </div>
               </div>
-              <div className="flex border-b border-neutral-200">
-                <div className="w-24 px-3 py-2 bg-neutral-50 text-sm text-neutral-500 font-medium">创建时间</div>
-                <div className="flex-1 px-3 py-2 text-sm">{new Date(selectedWorkOrder.created_at).toLocaleString('zh-CN')}</div>
+              <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ width: 96, padding: '8px 12px', backgroundColor: '#fafafa', fontSize: 14, color: '#999', fontWeight: 500 }}>创建时间</div>
+                <div style={{ flex: 1, padding: '8px 12px', fontSize: 14 }}>{new Date(selectedWorkOrder.created_at).toLocaleString('zh-CN')}</div>
               </div>
-              <div className="flex border-b border-neutral-200">
-                <div className="w-24 px-3 py-2 bg-neutral-50 text-sm text-neutral-500 font-medium">更新时间</div>
-                <div className="flex-1 px-3 py-2 text-sm">{new Date(selectedWorkOrder.updated_at).toLocaleString('zh-CN')}</div>
+              <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ width: 96, padding: '8px 12px', backgroundColor: '#fafafa', fontSize: 14, color: '#999', fontWeight: 500 }}>更新时间</div>
+                <div style={{ flex: 1, padding: '8px 12px', fontSize: 14 }}>{new Date(selectedWorkOrder.updated_at).toLocaleString('zh-CN')}</div>
               </div>
-              <div className="flex col-span-2">
-                <div className="w-24 px-3 py-2 bg-neutral-50 text-sm text-neutral-500 font-medium">描述</div>
-                <div className="flex-1 px-3 py-2 text-sm">{selectedWorkOrder.description || '-'}</div>
+              <div style={{ display: 'flex', gridColumn: 'span 2' }}>
+                <div style={{ width: 96, padding: '8px 12px', backgroundColor: '#fafafa', fontSize: 14, color: '#999', fontWeight: 500 }}>描述</div>
+                <div style={{ flex: 1, padding: '8px 12px', fontSize: 14 }}>{selectedWorkOrder.description || '-'}</div>
               </div>
             </div>
 
-            <div className="mt-6">
-              <h4 className="font-medium text-neutral-900 mb-3">关联任务</h4>
+            <div style={{ marginTop: 24 }}>
+              <h4 style={{ fontWeight: 500, color: '#333', marginBottom: 12 }}>关联任务</h4>
               <Table
                 columns={taskColumns}
                 dataSource={tasks}

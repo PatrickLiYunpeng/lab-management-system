@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Modal, Input, TextArea, Select, Switch, InputNumber, useToast, useForm, Form, FormItem, type FormInstance } from '../ui';
+import { Modal, Input, Select, Switch, InputNumber, Form, Row, Col, App } from 'antd';
 import { methodService } from '../../services/methodService';
 import { laboratoryService } from '../../services/laboratoryService';
 import { equipmentService } from '../../services/equipmentService';
 import type { Method, MethodFormData, Laboratory, Equipment } from '../../types';
+
+const { TextArea } = Input;
 
 interface MethodModalProps {
   visible: boolean;
@@ -46,34 +48,13 @@ interface MethodFormValues {
 }
 
 export function MethodModal({ visible, method, onSuccess, onCancel }: MethodModalProps) {
-  const [form] = useForm<MethodFormValues>({
-    initialValues: {
-      name: '',
-      code: '',
-      method_type: '',
-      category: undefined,
-      laboratory_id: undefined,
-      is_active: true,
-      description: '',
-      procedure_summary: '',
-      standard_cycle_hours: undefined,
-      min_cycle_hours: undefined,
-      max_cycle_hours: undefined,
-      requires_equipment: true,
-      default_equipment_id: undefined,
-    },
-    rules: {
-      name: [{ required: true, message: '请输入方法名称' }],
-      code: [{ required: true, message: '请输入方法代码' }],
-      method_type: [{ required: true, message: '请选择方法类型' }],
-    },
-  });
+  const [form] = Form.useForm<MethodFormValues>();
   const [loading, setLoading] = useState(false);
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [selectedLabId, setSelectedLabId] = useState<number | null>(null);
   const [requiresEquipment, setRequiresEquipment] = useState(true);
-  const toast = useToast();
+  const { message } = App.useApp();
 
   useEffect(() => {
     const loadLaboratories = async () => {
@@ -81,11 +62,11 @@ export function MethodModal({ visible, method, onSuccess, onCancel }: MethodModa
         const response = await laboratoryService.getLaboratories({ page: 1, page_size: 100 });
         setLaboratories(response.items);
       } catch {
-        toast.error('加载实验室列表失败');
+        message.error('加载实验室列表失败');
       }
     };
     loadLaboratories();
-  }, [toast]);
+  }, [message]);
 
   useEffect(() => {
     const loadEquipment = async () => {
@@ -98,14 +79,14 @@ export function MethodModal({ visible, method, onSuccess, onCancel }: MethodModa
           });
           setEquipment(response.items);
         } catch {
-          toast.error('加载设备列表失败');
+          message.error('加载设备列表失败');
         }
       } else {
         setEquipment([]);
       }
     };
     loadEquipment();
-  }, [selectedLabId, toast]);
+  }, [selectedLabId, message]);
 
   useEffect(() => {
     if (visible) {
@@ -129,12 +110,9 @@ export function MethodModal({ visible, method, onSuccess, onCancel }: MethodModa
   }, [visible, method, form]);
 
   const handleSubmit = async () => {
-    const isValid = await form.validateFields();
-    if (!isValid) return;
-
     try {
+      const values = await form.validateFields();
       setLoading(true);
-      const values = form.getFieldsValue();
 
       const submitData: MethodFormData = {
         ...values,
@@ -145,23 +123,22 @@ export function MethodModal({ visible, method, onSuccess, onCancel }: MethodModa
 
       if (method) {
         await methodService.updateMethod(method.id, submitData);
-        toast.success('方法更新成功');
+        message.success('方法更新成功');
       } else {
         await methodService.createMethod(submitData);
-        toast.success('方法创建成功');
+        message.success('方法创建成功');
       }
 
       onSuccess();
     } catch {
-      toast.error(method ? '更新失败' : '创建失败');
+      message.error(method ? '更新失败' : '创建失败');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLabChange = (value: string | number | (string | number)[]) => {
-    const labId = Array.isArray(value) ? value[0] as number : value as number;
-    setSelectedLabId(labId || null);
+  const handleLabChange = (value: number) => {
+    setSelectedLabId(value || null);
     form.setFieldValue('default_equipment_id', undefined);
   };
 
@@ -185,103 +162,117 @@ export function MethodModal({ visible, method, onSuccess, onCancel }: MethodModa
       cancelText="取消"
       destroyOnClose
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-6">
-            <FormItem name="name" label="方法名称">
+      <Form form={form} layout="vertical">
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="name" label="方法名称" rules={[{ required: true, message: '请输入方法名称' }]}>
               <Input placeholder="请输入方法名称" />
-            </FormItem>
-          </div>
-          <div className="col-span-3">
-            <FormItem name="code" label="方法代码">
+            </Form.Item>
+          </Col>
+          <Col span={6}>
+            <Form.Item name="code" label="方法代码" rules={[{ required: true, message: '请输入方法代码' }]}>
               <Input placeholder="如: XRF-001" disabled={!!method} />
-            </FormItem>
-          </div>
-          <div className="col-span-3">
-            <FormItem name="method_type" label="方法类型">
+            </Form.Item>
+          </Col>
+          <Col span={6}>
+            <Form.Item name="method_type" label="方法类型" rules={[{ required: true, message: '请选择方法类型' }]}>
               <Select options={methodTypeOptions} placeholder="请选择" disabled={!!method} />
-            </FormItem>
-          </div>
-        </div>
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="category" label="方法类别">
-            <Select options={categoryOptions} placeholder="请选择类别" allowClear />
-          </FormItem>
-          <FormItem name="laboratory_id" label="所属实验室">
-            <Select
-              placeholder="请选择实验室"
-              allowClear
-              onChange={handleLabChange}
-              options={laboratories.map(lab => ({
-                label: `${lab.name} (${lab.code})`,
-                value: lab.id,
-              }))}
-            />
-          </FormItem>
-          <FormItem name="is_active" label="状态">
-            <Switch checkedChildren="启用" unCheckedChildren="停用" />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="category" label="方法类别">
+              <Select options={categoryOptions} placeholder="请选择类别" allowClear />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="laboratory_id" label="所属实验室">
+              <Select
+                placeholder="请选择实验室"
+                allowClear
+                onChange={handleLabChange}
+                options={laboratories.map(lab => ({
+                  label: `${lab.name} (${lab.code})`,
+                  value: lab.id,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="is_active" label="状态" valuePropName="checked">
+              <Switch checkedChildren="启用" unCheckedChildren="停用" />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <FormItem name="description" label="方法描述">
+        <Form.Item name="description" label="方法描述">
           <TextArea rows={2} placeholder="请输入方法描述" />
-        </FormItem>
+        </Form.Item>
 
-        <FormItem name="procedure_summary" label="操作流程摘要">
+        <Form.Item name="procedure_summary" label="操作流程摘要">
           <TextArea rows={3} placeholder="请简要描述操作流程" />
-        </FormItem>
+        </Form.Item>
 
-        <div className="border-b border-neutral-200 pb-2 mb-4">
-          <span className="text-sm text-neutral-500">周期时间设置</span>
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>周期时间设置</span>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="standard_cycle_hours" label="标准周期(小时)">
-            <InputNumber
-              min={0.1}
-              max={1000}
-              step={0.5}
-              placeholder="标准时间"
-              className="w-full"
-            />
-          </FormItem>
-          <FormItem name="min_cycle_hours" label="最短周期(小时)">
-            <InputNumber
-              min={0.1}
-              max={1000}
-              step={0.5}
-              placeholder="最短时间"
-              className="w-full"
-            />
-          </FormItem>
-          <FormItem name="max_cycle_hours" label="最长周期(小时)">
-            <InputNumber
-              min={0.1}
-              max={1000}
-              step={0.5}
-              placeholder="最长时间"
-              className="w-full"
-            />
-          </FormItem>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="standard_cycle_hours" label="标准周期(小时)">
+              <InputNumber
+                min={0.1}
+                max={1000}
+                step={0.5}
+                placeholder="标准时间"
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="min_cycle_hours" label="最短周期(小时)">
+              <InputNumber
+                min={0.1}
+                max={1000}
+                step={0.5}
+                placeholder="最短时间"
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="max_cycle_hours" label="最长周期(小时)">
+              <InputNumber
+                min={0.1}
+                max={1000}
+                step={0.5}
+                placeholder="最长时间"
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 14, color: '#999' }}>设备要求</span>
         </div>
 
-        <div className="border-b border-neutral-200 pb-2 mb-4">
-          <span className="text-sm text-neutral-500">设备要求</span>
-        </div>
-
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="requires_equipment" label="需要设备">
-            <Switch 
-              checkedChildren="是" 
-              unCheckedChildren="否" 
-              checked={requiresEquipment}
-              onChange={handleRequiresEquipmentChange}
-            />
-          </FormItem>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="requires_equipment" label="需要设备" valuePropName="checked">
+              <Switch 
+                checkedChildren="是" 
+                unCheckedChildren="否" 
+                checked={requiresEquipment}
+                onChange={handleRequiresEquipmentChange}
+              />
+            </Form.Item>
+          </Col>
           {requiresEquipment && (
-            <div className="col-span-2">
-              <FormItem name="default_equipment_id" label="默认设备">
+            <Col span={16}>
+              <Form.Item name="default_equipment_id" label="默认设备">
                 <Select
                   placeholder={selectedLabId ? '请选择默认设备' : '请先选择实验室'}
                   allowClear
@@ -291,10 +282,10 @@ export function MethodModal({ visible, method, onSuccess, onCancel }: MethodModa
                     value: eq.id,
                   }))}
                 />
-              </FormItem>
-            </div>
+              </Form.Item>
+            </Col>
           )}
-        </div>
+        </Row>
       </Form>
     </Modal>
   );

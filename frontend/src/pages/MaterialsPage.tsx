@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { PlusIcon, PencilIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { Table, Button, Input, Select, Tag, Switch, useToast, type TableColumn, type TablePagination } from '../components/ui';
+import { PlusOutlined, EditOutlined, SearchOutlined } from '@ant-design/icons';
+import { Table, Button, Input, Select, Tag, Switch, App, Space } from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { materialService } from '../services/materialService';
 import { laboratoryService } from '../services/laboratoryService';
 import { siteService } from '../services/siteService';
@@ -35,7 +36,7 @@ export default function MaterialsPage() {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
-  const [pagination, setPagination] = useState<TablePagination>({
+  const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
     total: 0,
@@ -53,7 +54,7 @@ export default function MaterialsPage() {
   });
   const [searchValue, setSearchValue] = useState('');
   
-  const toast = useToast();
+  const { message } = App.useApp();
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchMaterials = useCallback(
@@ -79,13 +80,13 @@ export default function MaterialsPage() {
         });
       } catch (err) {
         if (!isAbortError(err)) {
-          toast.error('获取物料列表失败');
+          message.error('获取物料列表失败');
         }
       } finally {
         setLoading(false);
       }
     },
-    [filters, toast]
+    [filters, message]
   );
 
   const fetchSites = useCallback(async () => {
@@ -146,7 +147,7 @@ export default function MaterialsPage() {
     return () => clearTimeout(timer);
   }, [searchValue, filters.search]);
 
-  const handlePaginationChange = (page: number, pageSize: number) => {
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -154,27 +155,23 @@ export default function MaterialsPage() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
     
-    fetchMaterials(page, pageSize, controller.signal);
+    fetchMaterials(paginationConfig.current, paginationConfig.pageSize, controller.signal);
   };
 
-  const handleLabFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, laboratory_id: v as number | undefined }));
+  const handleLabFilterChange = (value: number | undefined) => {
+    setFilters((prev) => ({ ...prev, laboratory_id: value }));
   };
 
-  const handleClientFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, client_id: v as number | undefined }));
+  const handleClientFilterChange = (value: number | undefined) => {
+    setFilters((prev) => ({ ...prev, client_id: value }));
   };
 
-  const handleTypeFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, material_type: v as MaterialType | undefined }));
+  const handleTypeFilterChange = (value: MaterialType | undefined) => {
+    setFilters((prev) => ({ ...prev, material_type: value }));
   };
 
-  const handleStatusFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters((prev) => ({ ...prev, status: v as MaterialStatus | undefined }));
+  const handleStatusFilterChange = (value: MaterialStatus | undefined) => {
+    setFilters((prev) => ({ ...prev, status: value }));
   };
 
   const handleOverdueFilterChange = (checked: boolean) => {
@@ -213,7 +210,7 @@ export default function MaterialsPage() {
     return client ? client.name : '-';
   };
 
-  const columns: TableColumn<Material>[] = [
+  const columns: ColumnsType<Material> = [
     {
       title: '物料编码',
       dataIndex: 'material_code',
@@ -277,9 +274,9 @@ export default function MaterialsPage() {
       width: 80,
       render: (_, record) => (
         <Button
-          variant="link"
+          type="link"
           size="small"
-          icon={<PencilIcon className="w-4 h-4" />}
+          icon={<EditOutlined />}
           onClick={() => handleEdit(record)}
         >
           编辑
@@ -290,21 +287,21 @@ export default function MaterialsPage() {
 
   return (
     <div>
-      <div className="mb-4 flex justify-between">
-        <div className="flex items-center gap-4 flex-wrap">
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+        <Space wrap>
           <Input
             placeholder="搜索物料编码或名称"
-            prefix={<MagnifyingGlassIcon className="w-4 h-4" />}
+            prefix={<SearchOutlined />}
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            className="w-[200px]"
+            style={{ width: 200 }}
             allowClear
           />
           <Select
             placeholder="实验室"
             value={filters.laboratory_id}
             onChange={handleLabFilterChange}
-            className="w-[160px]"
+            style={{ width: 160 }}
             allowClear
             options={laboratories.map((lab) => ({
               label: `${lab.name} (${lab.code})`,
@@ -315,7 +312,7 @@ export default function MaterialsPage() {
             placeholder="客户"
             value={filters.client_id}
             onChange={handleClientFilterChange}
-            className="w-[150px]"
+            style={{ width: 150 }}
             allowClear
             options={clients.map((client) => ({
               label: client.name,
@@ -326,7 +323,7 @@ export default function MaterialsPage() {
             placeholder="类型"
             value={filters.material_type}
             onChange={handleTypeFilterChange}
-            className="w-[100px]"
+            style={{ width: 100 }}
             allowClear
             options={Object.entries(materialTypeLabels).map(([value, label]) => ({
               label,
@@ -337,23 +334,23 @@ export default function MaterialsPage() {
             placeholder="状态"
             value={filters.status}
             onChange={handleStatusFilterChange}
-            className="w-[100px]"
+            style={{ width: 100 }}
             allowClear
             options={Object.entries(statusLabels).map(([value, config]) => ({
               label: config.text,
               value,
             }))}
           />
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-neutral-600">仅逾期:</span>
+          <Space>
+            <span style={{ fontSize: 14, color: '#666' }}>仅逾期:</span>
             <Switch
               checked={filters.overdue_only}
               onChange={handleOverdueFilterChange}
               size="small"
             />
-          </div>
-        </div>
-        <Button variant="primary" icon={<PlusIcon className="w-4 h-4" />} onClick={handleAdd}>
+          </Space>
+        </Space>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新增物料
         </Button>
       </div>
@@ -368,8 +365,8 @@ export default function MaterialsPage() {
           showSizeChanger: true,
           showQuickJumper: true,
           showTotal: (total) => `共 ${total} 条`,
-          onChange: handlePaginationChange,
         }}
+        onChange={handleTableChange}
         scroll={{ x: 1200 }}
       />
 

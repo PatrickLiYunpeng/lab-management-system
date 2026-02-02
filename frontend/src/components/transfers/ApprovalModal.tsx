@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Modal, TextArea, Select, useToast, useForm, Form, FormItem, type FormInstance } from '../ui';
+import { Modal, Form, Select, Input, App } from 'antd';
 import { transferService } from '../../services/transferService';
 import type { BorrowRequest } from '../../types';
+
+const { TextArea } = Input;
 
 interface ApprovalModalProps {
   visible: boolean;
@@ -26,18 +28,10 @@ export function ApprovalModal({
   onSuccess,
   onCancel,
 }: ApprovalModalProps) {
-  const [form] = useForm<ApprovalFormValues>({
-    initialValues: {
-      decision: 'approve',
-      rejection_reason: '',
-    },
-    rules: {
-      decision: [{ required: true, message: '请选择审批决定' }],
-    },
-  });
+  const [form] = Form.useForm<ApprovalFormValues>();
   const [loading, setLoading] = useState(false);
   const [decision, setDecision] = useState('approve');
-  const toast = useToast();
+  const { message } = App.useApp();
 
   useEffect(() => {
     if (visible) {
@@ -55,7 +49,7 @@ export function ApprovalModal({
       
       // Validate rejection reason if rejecting
       if (values.decision === 'reject' && !values.rejection_reason) {
-        toast.error('请输入拒绝原因');
+        message.error('请输入拒绝原因');
         return;
       }
 
@@ -68,22 +62,21 @@ export function ApprovalModal({
         values.rejection_reason
       );
 
-      toast.success(approved ? '借调申请已批准' : '借调申请已拒绝');
+      message.success(approved ? '借调申请已批准' : '借调申请已拒绝');
       form.resetFields();
       onSuccess();
     } catch (error: unknown) {
       if (error && typeof error === 'object' && 'errorFields' in error) {
         return;
       }
-      toast.error('操作失败');
+      message.error('操作失败');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDecisionChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? String(value[0]) : String(value);
-    setDecision(v);
+  const handleDecisionChange = (value: string) => {
+    setDecision(value);
   };
 
   const handleCancel = () => {
@@ -104,40 +97,40 @@ export function ApprovalModal({
       destroyOnClose
     >
       {borrowRequest && (
-        <div className="mb-4 p-3 bg-neutral-50 rounded-md text-sm">
-          <p className="mb-1">
+        <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#fafafa', borderRadius: 6, fontSize: 14 }}>
+          <p style={{ marginBottom: 4 }}>
             <strong>人员:</strong>{' '}
             {borrowRequest.personnel?.user?.full_name || borrowRequest.personnel?.employee_id}
           </p>
-          <p className="mb-1">
+          <p style={{ marginBottom: 4 }}>
             <strong>调出实验室:</strong> {borrowRequest.from_laboratory?.name}
           </p>
-          <p className="mb-1">
+          <p style={{ marginBottom: 4 }}>
             <strong>调入实验室:</strong> {borrowRequest.to_laboratory?.name}
           </p>
-          <p className="mb-1">
+          <p style={{ marginBottom: 4 }}>
             <strong>借调时间:</strong> {borrowRequest.start_date} 至 {borrowRequest.end_date}
           </p>
           {borrowRequest.reason && (
-            <p>
+            <p style={{ marginBottom: 0 }}>
               <strong>借调原因:</strong> {borrowRequest.reason}
             </p>
           )}
         </div>
       )}
 
-      <Form form={form as unknown as FormInstance} layout="vertical">
-        <FormItem name="decision" label="审批决定">
+      <Form form={form} layout="vertical">
+        <Form.Item name="decision" label="审批决定" rules={[{ required: true, message: '请选择审批决定' }]}>
           <Select
             options={decisionOptions}
             onChange={handleDecisionChange}
           />
-        </FormItem>
+        </Form.Item>
 
         {decision === 'reject' && (
-          <FormItem name="rejection_reason" label="拒绝原因" required>
+          <Form.Item name="rejection_reason" label="拒绝原因" rules={[{ required: true, message: '请输入拒绝原因' }]}>
             <TextArea rows={3} placeholder="请输入拒绝原因" />
-          </FormItem>
+          </Form.Item>
         )}
       </Form>
     </Modal>

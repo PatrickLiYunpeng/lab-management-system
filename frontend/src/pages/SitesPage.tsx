@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { Table, Button, Input, Popconfirm, useToast, type TableColumn, type TablePagination } from '../components/ui';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
+import { Table, Button, Input, Popconfirm, Space, App } from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { siteService } from '../services/siteService';
 import { SiteModal } from '../components/sites/SiteModal';
 import { StatusTag } from '../components/common/StatusTag';
@@ -11,7 +12,7 @@ export default function SitesPage() {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingSite, setEditingSite] = useState<Site | null>(null);
-  const [pagination, setPagination] = useState<TablePagination>({
+  const [pagination, setPagination] = useState<TablePaginationConfig>({
     current: 1,
     pageSize: 10,
     total: 0,
@@ -19,7 +20,7 @@ export default function SitesPage() {
   const [searchText, setSearchText] = useState('');
   const [searchValue, setSearchValue] = useState('');
   
-  const toast = useToast();
+  const { message } = App.useApp();
   // Ref to prevent duplicate error messages in React StrictMode
   const errorShownRef = useRef(false);
 
@@ -42,12 +43,12 @@ export default function SitesPage() {
       // Only show error message once (prevents duplicate in React StrictMode)
       if (!errorShownRef.current) {
         errorShownRef.current = true;
-        toast.error('获取站点列表失败');
+        message.error('获取站点列表失败');
       }
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [message]);
 
   useEffect(() => {
     fetchSites();
@@ -58,14 +59,14 @@ export default function SitesPage() {
     const timer = setTimeout(() => {
       if (searchValue !== searchText) {
         setSearchText(searchValue);
-        fetchSites(1, pagination.pageSize, searchValue);
+        fetchSites(1, pagination.pageSize as number, searchValue);
       }
     }, 300);
     return () => clearTimeout(timer);
   }, [searchValue, searchText, pagination.pageSize, fetchSites]);
 
-  const handlePaginationChange = (page: number, pageSize: number) => {
-    fetchSites(page, pageSize, searchText);
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
+    fetchSites(paginationConfig.current, paginationConfig.pageSize, searchText);
   };
 
   const handleAdd = () => {
@@ -81,17 +82,17 @@ export default function SitesPage() {
   const handleDelete = async (id: number) => {
     try {
       await siteService.deleteSite(id);
-      toast.success('删除成功');
-      fetchSites(pagination.current, pagination.pageSize, searchText);
+      message.success('删除成功');
+      fetchSites(pagination.current, pagination.pageSize as number, searchText);
     } catch {
-      toast.error('删除失败');
+      message.error('删除失败');
     }
   };
 
   const handleModalSuccess = () => {
     setModalVisible(false);
     setEditingSite(null);
-    fetchSites(pagination.current, pagination.pageSize, searchText);
+    fetchSites(pagination.current, pagination.pageSize as number, searchText);
   };
 
   const handleModalCancel = () => {
@@ -99,7 +100,7 @@ export default function SitesPage() {
     setEditingSite(null);
   };
 
-  const columns: TableColumn<Site>[] = [
+  const columns: ColumnsType<Site> = [
     {
       title: '站点名称',
       dataIndex: 'name',
@@ -117,14 +118,14 @@ export default function SitesPage() {
       dataIndex: 'city',
       key: 'city',
       width: 120,
-      render: (value) => (value as string) || '-',
+      render: (value) => value || '-',
     },
     {
       title: '联系人',
       dataIndex: 'contact_name',
       key: 'contact_name',
       width: 120,
-      render: (value) => (value as string) || '-',
+      render: (value) => value || '-',
     },
     {
       title: '时区',
@@ -137,18 +138,18 @@ export default function SitesPage() {
       dataIndex: 'is_active',
       key: 'is_active',
       width: 80,
-      render: (value) => <StatusTag isActive={value as boolean} />,
+      render: (value) => <StatusTag isActive={value} />,
     },
     {
       title: '操作',
       key: 'action',
       width: 150,
       render: (_, record) => (
-        <div className="flex items-center gap-2">
+        <Space>
           <Button
-            variant="link"
+            type="link"
             size="small"
-            icon={<PencilIcon className="w-4 h-4" />}
+            icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
           >
             编辑
@@ -159,29 +160,29 @@ export default function SitesPage() {
             onConfirm={() => handleDelete(record.id)}
             okText="确定"
             cancelText="取消"
-            okDanger
+            okButtonProps={{ danger: true }}
           >
-            <Button variant="link" size="small" danger icon={<TrashIcon className="w-4 h-4" />}>
+            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
               删除
             </Button>
           </Popconfirm>
-        </div>
+        </Space>
       ),
     },
   ];
 
   return (
     <div>
-      <div className="mb-4 flex justify-between">
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
         <Input
           placeholder="搜索站点名称或代码"
-          prefix={<MagnifyingGlassIcon className="w-4 h-4" />}
+          prefix={<SearchOutlined />}
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
-          className="w-[300px]"
+          style={{ width: 300 }}
           allowClear
         />
-        <Button variant="primary" icon={<PlusIcon className="w-4 h-4" />} onClick={handleAdd}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新增站点
         </Button>
       </div>
@@ -196,8 +197,8 @@ export default function SitesPage() {
           showSizeChanger: true,
           showQuickJumper: true,
           showTotal: (total) => `共 ${total} 条`,
-          onChange: handlePaginationChange,
         }}
+        onChange={handleTableChange}
       />
 
       <SiteModal

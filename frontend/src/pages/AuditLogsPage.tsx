@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  MagnifyingGlassIcon, ArrowPathIcon, EyeIcon,
-  UserIcon, DocumentTextIcon,
-} from '@heroicons/react/24/outline';
+  SearchOutlined, ReloadOutlined, EyeOutlined,
+  UserOutlined, FileTextOutlined,
+} from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
-import { Table, Button, Input, Select, Tag, Modal, Tooltip, DatePicker, useToast, type TableColumn } from '../components/ui';
+import { App, Table, Button, Input, Select, Tag, Modal, Tooltip, DatePicker, Card } from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { auditLogService } from '../services/auditLogService';
 import { laboratoryService } from '../services/laboratoryService';
 import { isAbortError } from '../services/api';
@@ -70,7 +71,7 @@ export default function AuditLogsPage() {
   
   // Ref to store abort controller for request cancellation
   const abortControllerRef = useRef<AbortController | null>(null);
-  const toast = useToast();
+  const { message } = App.useApp();
 
   const fetchLogs = useCallback(async (page = 1, pageSize = 20, signal?: AbortSignal) => {
     setLoading(true);
@@ -98,12 +99,12 @@ export default function AuditLogsPage() {
     } catch (err) {
       // Ignore abort errors
       if (!isAbortError(err)) {
-        toast.error('获取审计日志失败');
+        message.error('获取审计日志失败');
       }
     } finally {
       setLoading(false);
     }
-  }, [filters, toast]);
+  }, [filters, message]);
 
   const fetchReferenceData = useCallback(async () => {
     try {
@@ -152,7 +153,7 @@ export default function AuditLogsPage() {
     return () => clearTimeout(timer);
   }, [searchValue, filters.search]);
 
-  const handleTableChange = (page: number, pageSize: number) => {
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
     // Abort previous request if any
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -161,7 +162,7 @@ export default function AuditLogsPage() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
     
-    fetchLogs(page, pageSize, controller.signal);
+    fetchLogs(paginationConfig.current || 1, paginationConfig.pageSize || 20, controller.signal);
   };
 
   const handleViewDetail = (record: AuditLog) => {
@@ -179,27 +180,25 @@ export default function AuditLogsPage() {
     return lab ? lab.name : '-';
   };
 
-  const columns: TableColumn<AuditLog>[] = [
+  const columns: ColumnsType<AuditLog> = [
     {
       title: '时间',
       dataIndex: 'created_at',
       key: 'created_at',
       width: 160,
-      render: (date: unknown) => dayjs(date as string).format('YYYY-MM-DD HH:mm:ss'),
+      render: (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm:ss'),
     },
     {
       title: '用户',
       dataIndex: 'username',
       key: 'username',
       width: 120,
-      render: (username: unknown, record: AuditLog) => (
-        <div className="flex items-center gap-1.5">
-          <UserIcon className="w-4 h-4 text-neutral-400" />
-          <span>{(username as string) || '-'}</span>
+      render: (username: string, record) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <UserOutlined style={{ color: '#999' }} />
+          <span>{username || '-'}</span>
           {record.user_role && (
-            <Tag color="default" className="text-xs">
-              {record.user_role}
-            </Tag>
+            <Tag style={{ fontSize: 11 }}>{record.user_role}</Tag>
           )}
         </div>
       ),
@@ -209,8 +208,8 @@ export default function AuditLogsPage() {
       dataIndex: 'action',
       key: 'action',
       width: 80,
-      render: (action: unknown) => {
-        const config = actionLabels[action as string] || { text: action as string, color: 'default' as const };
+      render: (action: string) => {
+        const config = actionLabels[action] || { text: action, color: 'default' as const };
         return <Tag color={config.color}>{config.text}</Tag>;
       },
     },
@@ -219,10 +218,10 @@ export default function AuditLogsPage() {
       dataIndex: 'entity_type',
       key: 'entity_type',
       width: 100,
-      render: (type: unknown) => (
-        <div className="flex items-center gap-1.5">
-          <DocumentTextIcon className="w-4 h-4 text-neutral-400" />
-          <span>{entityTypeLabels[type as string] || (type as string)}</span>
+      render: (type: string) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <FileTextOutlined style={{ color: '#999' }} />
+          <span>{entityTypeLabels[type] || type}</span>
         </div>
       ),
     },
@@ -231,9 +230,9 @@ export default function AuditLogsPage() {
       dataIndex: 'entity_name',
       key: 'entity_name',
       width: 180,
-      render: (name: unknown, record: AuditLog) => (
+      render: (name: string, record) => (
         <Tooltip title={`ID: ${record.entity_id || '-'}`}>
-          <span className="cursor-help">{(name as string) || '-'}</span>
+          <span style={{ cursor: 'help' }}>{name || '-'}</span>
         </Tooltip>
       ),
     },
@@ -241,26 +240,26 @@ export default function AuditLogsPage() {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
-      render: (text: unknown) => (text as string) || '-',
+      render: (text: string) => text || '-',
     },
     {
       title: '实验室',
       dataIndex: 'laboratory_id',
       key: 'laboratory_id',
       width: 140,
-      render: (labId: unknown) => getLabName(labId as number),
+      render: (labId: number) => getLabName(labId),
     },
     {
       title: '操作',
       key: 'actions',
       width: 80,
-      render: (_: unknown, record: AuditLog) => (
+      render: (_, record) => (
         <Button
-          variant="link"
+          type="link"
           size="small"
+          icon={<EyeOutlined />}
           onClick={() => handleViewDetail(record)}
         >
-          <EyeIcon className="w-4 h-4 mr-1" />
           详情
         </Button>
       ),
@@ -269,29 +268,28 @@ export default function AuditLogsPage() {
 
   return (
     <div>
-      <div className="bg-white rounded-lg border border-neutral-200 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-neutral-800">审计日志</h2>
-          <Button onClick={() => fetchLogs()}>
-            <ArrowPathIcon className="w-4 h-4 mr-1" />
+      <Card
+        title="审计日志"
+        extra={
+          <Button icon={<ReloadOutlined />} onClick={() => fetchLogs()}>
             刷新
           </Button>
-        </div>
-
-        <div className="flex flex-wrap gap-3 mb-4">
+        }
+      >
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
           <Input
             placeholder="搜索用户名、实体名称或描述"
-            prefix={<MagnifyingGlassIcon className="w-4 h-4 text-neutral-400" />}
+            prefix={<SearchOutlined style={{ color: '#999' }} />}
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            className="w-64"
+            style={{ width: 256 }}
             allowClear
           />
           <Select
             placeholder="操作类型"
             value={filters.action}
-            onChange={(value) => handleFilterChange('action', Array.isArray(value) ? value[0] : value)}
-            className="w-32"
+            onChange={(value) => handleFilterChange('action', value)}
+            style={{ width: 128 }}
             allowClear
             options={actions.map((action) => ({
               label: actionLabels[action]?.text || action,
@@ -301,8 +299,8 @@ export default function AuditLogsPage() {
           <Select
             placeholder="实体类型"
             value={filters.entity_type}
-            onChange={(value) => handleFilterChange('entity_type', Array.isArray(value) ? value[0] : value)}
-            className="w-32"
+            onChange={(value) => handleFilterChange('entity_type', value)}
+            style={{ width: 128 }}
             allowClear
             options={entityTypes.map((type) => ({
               label: entityTypeLabels[type] || type,
@@ -312,8 +310,8 @@ export default function AuditLogsPage() {
           <Select
             placeholder="实验室"
             value={filters.laboratory_id}
-            onChange={(value) => handleFilterChange('laboratory_id', Array.isArray(value) ? value[0] : value)}
-            className="w-44"
+            onChange={(value) => handleFilterChange('laboratory_id', value)}
+            style={{ width: 176 }}
             allowClear
             options={laboratories.map((lab) => ({
               label: lab.name,
@@ -324,13 +322,13 @@ export default function AuditLogsPage() {
             placeholder="开始日期"
             value={filters.startDate}
             onChange={(date) => handleFilterChange('startDate', date)}
-            className="w-36"
+            style={{ width: 144 }}
           />
           <DatePicker
             placeholder="结束日期"
             value={filters.endDate}
             onChange={(date) => handleFilterChange('endDate', date)}
-            className="w-36"
+            style={{ width: 144 }}
           />
         </div>
 
@@ -346,12 +344,12 @@ export default function AuditLogsPage() {
             showSizeChanger: true,
             showQuickJumper: true,
             showTotal: (total) => `共 ${total} 条记录`,
-            onChange: handleTableChange,
           }}
+          onChange={handleTableChange}
           scroll={{ x: 1200 }}
           size="small"
         />
-      </div>
+      </Card>
 
       {/* Detail Modal */}
       <Modal
@@ -362,7 +360,15 @@ export default function AuditLogsPage() {
         width={700}
       >
         {selectedLog && (
-          <div className="grid grid-cols-2 gap-px bg-neutral-200 border border-neutral-200 rounded-md overflow-hidden">
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(2, 1fr)', 
+            gap: 1, 
+            backgroundColor: '#e5e5e5', 
+            border: '1px solid #e5e5e5', 
+            borderRadius: 6, 
+            overflow: 'hidden' 
+          }}>
             <DescriptionItem label="ID">{selectedLog.id}</DescriptionItem>
             <DescriptionItem label="时间">
               {dayjs(selectedLog.created_at).format('YYYY-MM-DD HH:mm:ss')}
@@ -385,14 +391,32 @@ export default function AuditLogsPage() {
             <DescriptionItem label="请求路径">{selectedLog.request_path || '-'}</DescriptionItem>
             {selectedLog.old_values && (
               <DescriptionItem label="旧值" span={2}>
-                <pre className="text-xs font-mono whitespace-pre-wrap bg-neutral-100 p-2 rounded max-h-40 overflow-auto">
+                <pre style={{ 
+                  fontSize: 12, 
+                  fontFamily: 'monospace', 
+                  whiteSpace: 'pre-wrap', 
+                  backgroundColor: '#f5f5f5', 
+                  padding: 8, 
+                  borderRadius: 4, 
+                  maxHeight: 160, 
+                  overflow: 'auto' 
+                }}>
                   {JSON.stringify(selectedLog.old_values, null, 2)}
                 </pre>
               </DescriptionItem>
             )}
             {selectedLog.new_values && (
               <DescriptionItem label="新值" span={2}>
-                <pre className="text-xs font-mono whitespace-pre-wrap bg-neutral-100 p-2 rounded max-h-40 overflow-auto">
+                <pre style={{ 
+                  fontSize: 12, 
+                  fontFamily: 'monospace', 
+                  whiteSpace: 'pre-wrap', 
+                  backgroundColor: '#f5f5f5', 
+                  padding: 8, 
+                  borderRadius: 4, 
+                  maxHeight: 160, 
+                  overflow: 'auto' 
+                }}>
                   {JSON.stringify(selectedLog.new_values, null, 2)}
                 </pre>
               </DescriptionItem>
@@ -415,9 +439,13 @@ function DescriptionItem({
   span?: 1 | 2;
 }) {
   return (
-    <div className={`bg-white p-3 ${span === 2 ? 'col-span-2' : ''}`}>
-      <div className="text-xs text-neutral-500 mb-1">{label}</div>
-      <div className="text-sm text-neutral-800">{children}</div>
+    <div style={{ 
+      backgroundColor: '#fff', 
+      padding: 12, 
+      gridColumn: span === 2 ? 'span 2' : undefined 
+    }}>
+      <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 14, color: '#333' }}>{children}</div>
     </div>
   );
 }

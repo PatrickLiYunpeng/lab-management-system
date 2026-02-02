@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
-  ArrowPathIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-} from '@heroicons/react/24/outline';
+  ReloadOutlined,
+  ClockCircleOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+} from '@ant-design/icons';
 import {
   permissionService,
   type PermissionMatrix,
@@ -20,9 +20,9 @@ import {
   Alert,
   Tooltip,
   Popconfirm,
-  useToast,
-  type TableColumn,
-} from '../ui';
+  App,
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 
 // Permission categories for grouping
 const PERMISSION_CATEGORIES: Record<string, { label: string; permissions: string[] }> = {
@@ -97,7 +97,7 @@ interface PermissionRow {
 }
 
 export function PermissionMatrixComponent() {
-  const toast = useToast();
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [matrix, setMatrix] = useState<PermissionMatrix | null>(null);
@@ -111,11 +111,11 @@ export function PermissionMatrixComponent() {
       const data = await permissionService.getPermissionMatrix();
       setMatrix(data);
     } catch {
-      toast.error('获取权限矩阵失败');
+      message.error('获取权限矩阵失败');
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [message]);
 
   useEffect(() => {
     fetchMatrix();
@@ -127,7 +127,7 @@ export function PermissionMatrixComponent() {
       const logs = await permissionService.getChangeLogs({ limit: 50 });
       setChangeLogs(logs);
     } catch {
-      toast.error('获取变更历史失败');
+      message.error('获取变更历史失败');
     } finally {
       setHistoryLoading(false);
     }
@@ -136,7 +136,7 @@ export function PermissionMatrixComponent() {
   const handlePermissionChange = async (role: string, permission: string, enabled: boolean) => {
     // Admin permissions cannot be changed
     if (role === 'admin') {
-      toast.warning('管理员权限不可修改');
+      message.warning('管理员权限不可修改');
       return;
     }
 
@@ -145,7 +145,7 @@ export function PermissionMatrixComponent() {
 
     try {
       await permissionService.updatePermission(role, permission, enabled);
-      toast.success('权限已更新');
+      message.success('权限已更新');
       
       // Update local state
       if (matrix) {
@@ -160,7 +160,7 @@ export function PermissionMatrixComponent() {
         setMatrix(newMatrix);
       }
     } catch {
-      toast.error('权限更新失败');
+      message.error('权限更新失败');
     } finally {
       setSaving(null);
     }
@@ -169,10 +169,10 @@ export function PermissionMatrixComponent() {
   const handleResetToDefaults = async (role?: string) => {
     try {
       const result = await permissionService.resetToDefaults(role);
-      toast.success(`已重置 ${result.reset_count} 个权限到默认值`);
+      message.success(`已重置 ${result.reset_count} 个权限到默认值`);
       fetchMatrix();
     } catch {
-      toast.error('重置失败');
+      message.error('重置失败');
     }
   };
 
@@ -235,7 +235,7 @@ export function PermissionMatrixComponent() {
 
     return (
       <Tooltip title={isAdmin ? '管理员权限不可修改' : undefined}>
-        <div className="flex justify-center">
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
           <Switch
             checked={enabled}
             disabled={isAdmin || isSaving}
@@ -247,7 +247,7 @@ export function PermissionMatrixComponent() {
     );
   };
 
-  const columns: TableColumn<PermissionRow>[] = [
+  const columns: ColumnsType<PermissionRow> = [
     {
       title: '权限名称',
       dataIndex: 'permission_label',
@@ -256,8 +256,8 @@ export function PermissionMatrixComponent() {
       fixed: 'left',
       render: (text: unknown, record) => (
         <div>
-          <div className="text-sm text-neutral-900">{String(text)}</div>
-          <div className="text-xs text-neutral-500">{record.permission}</div>
+          <div style={{ fontSize: 14, color: '#171717' }}>{String(text)}</div>
+          <div style={{ fontSize: 12, color: '#737373' }}>{record.permission}</div>
         </div>
       ),
     },
@@ -307,17 +307,16 @@ export function PermissionMatrixComponent() {
   const tableData = getTableData();
 
   return (
-    <div className="bg-white rounded-lg border border-neutral-200 shadow-sm">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-neutral-50">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-neutral-900">权限矩阵管理</span>
+    <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e5e5', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #e5e5e5', background: '#fafafa' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontWeight: 500, color: '#171717' }}>权限矩阵管理</span>
           <Tag color="blue">仅管理员可见</Tag>
         </div>
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Button
-            variant="default"
             size="small"
-            icon={<ClockIcon className="w-4 h-4" />}
+            icon={<ClockCircleOutlined />}
             onClick={showHistory}
           >
             变更历史
@@ -330,9 +329,8 @@ export function PermissionMatrixComponent() {
             cancelText="取消"
           >
             <Button
-              variant="default"
               size="small"
-              icon={<ArrowPathIcon className="w-4 h-4" />}
+              icon={<ReloadOutlined />}
             >
               重置为默认
             </Button>
@@ -340,16 +338,16 @@ export function PermissionMatrixComponent() {
         </div>
       </div>
 
-      <div className="p-4">
+      <div style={{ padding: 16 }}>
         <Alert
           type="info"
           message="权限管理说明"
           description="在此页面可以配置每个角色对系统各功能模块的访问权限。管理员角色拥有所有权限且不可修改。权限变更将实时生效。"
-          className="mb-4"
+          style={{ marginBottom: 16 }}
         />
 
         {loading ? (
-          <div className="flex justify-center py-10">
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
             <Spin size="large" />
           </div>
         ) : (
@@ -358,8 +356,8 @@ export function PermissionMatrixComponent() {
             if (categoryRows.length === 0) return null;
 
             return (
-              <div key={catKey} className="mb-6">
-                <h3 className="text-base font-medium text-neutral-900 mb-3">
+              <div key={catKey} style={{ marginBottom: 24 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 500, color: '#171717', marginBottom: 12 }}>
                   {catInfo.label}
                 </h3>
                 <Table
@@ -368,6 +366,7 @@ export function PermissionMatrixComponent() {
                   rowKey="key"
                   size="small"
                   bordered
+                  pagination={false}
                 />
               </div>
             );
@@ -379,39 +378,39 @@ export function PermissionMatrixComponent() {
         title="权限变更历史"
         open={historyVisible}
         onCancel={() => setHistoryVisible(false)}
-        size="large"
+        width={800}
         footer={null}
       >
         {historyLoading ? (
-          <div className="flex justify-center py-10">
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
             <Spin />
           </div>
         ) : changeLogs.length === 0 ? (
-          <p className="text-neutral-500 text-center py-6">暂无变更记录</p>
+          <p style={{ color: '#737373', textAlign: 'center', padding: '24px 0' }}>暂无变更记录</p>
         ) : (
-          <div className="space-y-4 max-h-96 overflow-y-auto">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxHeight: 384, overflowY: 'auto' }}>
             {changeLogs.map((log, index) => (
-              <div key={index} className="flex gap-3">
-                <div className="flex-shrink-0 mt-0.5">
+              <div key={index} style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flexShrink: 0, marginTop: 2 }}>
                   {log.new_value ? (
-                    <CheckCircleIcon className="w-5 h-5 text-success-500" />
+                    <CheckCircleOutlined style={{ fontSize: 20, color: '#22c55e' }} />
                   ) : (
-                    <XCircleIcon className="w-5 h-5 text-error-500" />
+                    <CloseCircleOutlined style={{ fontSize: 20, color: '#ef4444' }} />
                   )}
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-neutral-900">
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 500, color: '#171717' }}>
                       {ROLE_LABELS[log.role] || log.role}
                     </span>
-                    <span className="text-neutral-500">的</span>
-                    <code className="px-1.5 py-0.5 bg-neutral-100 rounded text-sm">{log.permission}</code>
-                    <span className="text-neutral-500">权限</span>
+                    <span style={{ color: '#737373' }}>的</span>
+                    <code style={{ padding: '2px 6px', background: '#f5f5f5', borderRadius: 4, fontSize: 14 }}>{log.permission}</code>
+                    <span style={{ color: '#737373' }}>权限</span>
                     <Tag color={log.new_value ? 'success' : 'error'}>
                       {log.new_value ? '已启用' : '已禁用'}
                     </Tag>
                   </div>
-                  <div className="text-xs text-neutral-400 mt-1">
+                  <div style={{ fontSize: 12, color: '#a3a3a3', marginTop: 4 }}>
                     {new Date(log.changed_at).toLocaleString('zh-CN')}
                     {log.reason && ` - ${log.reason}`}
                   </div>

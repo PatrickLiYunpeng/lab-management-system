@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Input, Select, Switch, useToast, useForm, Form, FormItem, type FormInstance } from '../ui';
+import { Modal, Input, Select, Switch, Form, Row, Col, App } from 'antd';
 import { siteService } from '../../services/siteService';
 import type { Site, SiteFormData } from '../../types';
 
@@ -23,33 +23,9 @@ const timezones = [
 ];
 
 export function SiteModal({ visible, site, onSuccess, onCancel }: SiteModalProps) {
-  const [form] = useForm<SiteFormData>({
-    initialValues: {
-      name: '',
-      code: '',
-      address: '',
-      city: '',
-      country: '',
-      timezone: 'Asia/Shanghai',
-      contact_name: '',
-      contact_email: '',
-      contact_phone: '',
-      is_active: true,
-    },
-    rules: {
-      name: [{ required: true, message: '请输入站点名称' }],
-      code: [{ required: true, message: '请输入站点代码' }],
-      timezone: [{ required: true, message: '请选择时区' }],
-      contact_email: [
-        {
-          pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-          message: '请输入有效的邮箱地址',
-        },
-      ],
-    },
-  });
+  const [form] = Form.useForm<SiteFormData>();
   const [loading, setLoading] = useState(false);
-  const toast = useToast();
+  const { message } = App.useApp();
 
   useEffect(() => {
     if (visible) {
@@ -63,24 +39,21 @@ export function SiteModal({ visible, site, onSuccess, onCancel }: SiteModalProps
   }, [visible, site, form]);
 
   const handleSubmit = async () => {
-    const isValid = await form.validateFields();
-    if (!isValid) return;
-
     try {
+      const values = await form.validateFields();
       setLoading(true);
-      const values = form.getFieldsValue() as SiteFormData;
 
       if (site) {
         await siteService.updateSite(site.id, values);
-        toast.success('更新成功');
+        message.success('更新成功');
       } else {
         await siteService.createSite(values);
-        toast.success('创建成功');
+        message.success('创建成功');
       }
 
       onSuccess();
     } catch {
-      toast.error(site ? '更新失败' : '创建失败');
+      message.error(site ? '更新失败' : '创建失败');
     } finally {
       setLoading(false);
     }
@@ -98,47 +71,72 @@ export function SiteModal({ visible, site, onSuccess, onCancel }: SiteModalProps
       cancelText="取消"
       destroyOnClose
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="name" label="站点名称">
-            <Input placeholder="请输入站点名称" />
-          </FormItem>
-          <FormItem name="code" label="站点代码">
-            <Input placeholder="请输入站点代码" />
-          </FormItem>
-        </div>
+      <Form form={form} layout="vertical">
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="name" label="站点名称" rules={[{ required: true, message: '请输入站点名称' }]}>
+              <Input placeholder="请输入站点名称" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="code" label="站点代码" rules={[{ required: true, message: '请输入站点代码' }]}>
+              <Input placeholder="请输入站点代码" />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <FormItem name="address" label="地址">
+        <Form.Item name="address" label="地址">
           <Input placeholder="请输入地址" />
-        </FormItem>
+        </Form.Item>
 
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="city" label="城市">
-            <Input placeholder="请输入城市" />
-          </FormItem>
-          <FormItem name="country" label="国家">
-            <Input placeholder="请输入国家" />
-          </FormItem>
-          <FormItem name="timezone" label="时区">
-            <Select options={timezones} placeholder="请选择时区" />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="city" label="城市">
+              <Input placeholder="请输入城市" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="country" label="国家">
+              <Input placeholder="请输入国家" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="timezone" label="时区" rules={[{ required: true, message: '请选择时区' }]}>
+              <Select options={timezones} placeholder="请选择时区" />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <div className="grid grid-cols-3 gap-4">
-          <FormItem name="contact_name" label="联系人姓名">
-            <Input placeholder="请输入联系人姓名" />
-          </FormItem>
-          <FormItem name="contact_email" label="联系人邮箱">
-            <Input placeholder="请输入联系人邮箱" />
-          </FormItem>
-          <FormItem name="contact_phone" label="联系电话">
-            <Input placeholder="请输入联系电话" />
-          </FormItem>
-        </div>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item name="contact_name" label="联系人姓名">
+              <Input placeholder="请输入联系人姓名" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item
+              name="contact_email"
+              label="联系人邮箱"
+              rules={[
+                {
+                  pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: '请输入有效的邮箱地址',
+                },
+              ]}
+            >
+              <Input placeholder="请输入联系人邮箱" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="contact_phone" label="联系电话">
+              <Input placeholder="请输入联系电话" />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <FormItem name="is_active" label="状态">
+        <Form.Item name="is_active" label="状态" valuePropName="checked">
           <Switch checkedChildren="启用" unCheckedChildren="停用" />
-        </FormItem>
+        </Form.Item>
       </Form>
     </Modal>
   );

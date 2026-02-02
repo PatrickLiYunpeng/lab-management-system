@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
-import { Modal, Select, Switch, Input, DatePicker, useToast, useForm, Form, FormItem, type FormInstance } from '../ui';
+import { Modal, Form, Select, Switch, Input, DatePicker, Row, Col, App } from 'antd';
 import { skillService } from '../../services/skillService';
 import type { Skill, PersonnelSkill, PersonnelSkillFormData, PersonnelSkillUpdateData, ProficiencyLevel } from '../../types';
 
@@ -37,23 +37,10 @@ export function PersonnelSkillModal({
   onSuccess,
   onCancel,
 }: PersonnelSkillModalProps) {
-  const [form] = useForm<PersonnelSkillFormValues>({
-    initialValues: {
-      skill_id: undefined as unknown as number,
-      proficiency_level: 'beginner',
-      is_certified: false,
-      certification_date: undefined,
-      certification_expiry: undefined,
-      certificate_number: '',
-    },
-    rules: {
-      skill_id: [{ required: true, message: '请选择技能' }],
-      proficiency_level: [{ required: true, message: '请选择熟练度' }],
-    },
-  });
+  const [form] = Form.useForm<PersonnelSkillFormValues>();
   const [loading, setLoading] = useState(false);
   const [isCertified, setIsCertified] = useState(false);
-  const toast = useToast();
+  const { message } = App.useApp();
   const isEdit = !!personnelSkill;
 
   useEffect(() => {
@@ -97,7 +84,7 @@ export function PersonnelSkillModal({
           certificate_number: values.certificate_number,
         };
         await skillService.updatePersonnelSkill(personnelId, personnelSkill.skill_id, updateData);
-        toast.success('技能更新成功');
+        message.success('技能更新成功');
       } else {
         const createData: PersonnelSkillFormData = {
           skill_id: values.skill_id,
@@ -108,7 +95,7 @@ export function PersonnelSkillModal({
           certificate_number: values.certificate_number,
         };
         await skillService.assignSkillToPersonnel(personnelId, createData);
-        toast.success('技能分配成功');
+        message.success('技能分配成功');
       }
 
       onSuccess();
@@ -116,7 +103,7 @@ export function PersonnelSkillModal({
       if (error && typeof error === 'object' && 'errorFields' in error) {
         return;
       }
-      toast.error(isEdit ? '更新失败' : '分配失败');
+      message.error(isEdit ? '更新失败' : '分配失败');
     } finally {
       setLoading(false);
     }
@@ -138,41 +125,50 @@ export function PersonnelSkillModal({
       cancelText="取消"
       destroyOnClose
     >
-      <Form form={form as unknown as FormInstance} layout="vertical">
-        <div className="grid grid-cols-2 gap-4">
-          <FormItem name="skill_id" label="技能">
-            <Select
-              placeholder="请选择技能"
-              disabled={isEdit}
-              showSearch
-              options={availableSkills.map((s) => ({
-                label: `${s.name} (${s.code})`,
-                value: s.id,
-              }))}
-            />
-          </FormItem>
-          <FormItem name="proficiency_level" label="熟练度">
-            <Select options={proficiencyOptions} placeholder="请选择熟练度" />
-          </FormItem>
-        </div>
+      <Form form={form} layout="vertical">
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="skill_id" label="技能" rules={[{ required: true, message: '请选择技能' }]}>
+              <Select
+                placeholder="请选择技能"
+                disabled={isEdit}
+                showSearch
+                optionFilterProp="label"
+                options={availableSkills.map((s) => ({
+                  label: `${s.name} (${s.code})`,
+                  value: s.id,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="proficiency_level" label="熟练度" rules={[{ required: true, message: '请选择熟练度' }]}>
+              <Select options={proficiencyOptions} placeholder="请选择熟练度" />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <FormItem name="is_certified" label="已认证" valuePropName="checked">
+        <Form.Item name="is_certified" label="已认证" valuePropName="checked">
           <Switch onChange={handleCertifiedChange} />
-        </FormItem>
+        </Form.Item>
 
         {isCertified && (
           <>
-            <div className="grid grid-cols-2 gap-4">
-              <FormItem name="certification_date" label="认证日期">
-                <DatePicker className="w-full" placeholder="选择认证日期" />
-              </FormItem>
-              <FormItem name="certification_expiry" label="认证到期日">
-                <DatePicker className="w-full" placeholder="选择到期日期" />
-              </FormItem>
-            </div>
-            <FormItem name="certificate_number" label="证书编号">
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="certification_date" label="认证日期">
+                  <DatePicker style={{ width: '100%' }} placeholder="选择认证日期" />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="certification_expiry" label="认证到期日">
+                  <DatePicker style={{ width: '100%' }} placeholder="选择到期日期" />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Form.Item name="certificate_number" label="证书编号">
               <Input placeholder="请输入证书编号" />
-            </FormItem>
+            </Form.Item>
           </>
         )}
       </Form>

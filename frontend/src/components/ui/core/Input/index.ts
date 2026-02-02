@@ -1,5 +1,0 @@
-export { Input, type InputProps, type InputSize } from './Input'
-export { Password, type PasswordProps } from './Password'
-export { TextArea, type TextAreaProps, type TextAreaSize, type AutoSizeConfig } from './TextArea'
-export { InputNumber, type InputNumberProps, type InputNumberSize } from './InputNumber'
-export { default } from './Input'

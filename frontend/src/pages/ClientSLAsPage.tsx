@@ -1,13 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import {
-  Table, Button, Select, Tag, Popconfirm, useToast, Modal, Input, TextArea, InputNumber, Switch,
-  useForm, Form, FormItem, type FormInstance, type TableColumn, type TablePagination,
-} from '../components/ui';
+  Table, Button, Select, Tag, Popconfirm, App, Modal, Input, InputNumber, Switch, Form, Row, Col,
+} from 'antd';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { clientSlaService } from '../services/clientSlaService';
 import { clientService } from '../services/clientService';
 import { laboratoryService } from '../services/laboratoryService';
 import type { ClientSLA, ClientSLAFormData, Client, Laboratory } from '../types';
+
+const { TextArea } = Input;
 
 interface SLAFormValues {
   client_id: number;
@@ -27,28 +29,12 @@ export default function ClientSLAsPage() {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingSLA, setEditingSLA] = useState<ClientSLA | null>(null);
-  const [pagination, setPagination] = useState<TablePagination>({ current: 1, pageSize: 20, total: 0 });
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [filters, setFilters] = useState<{ client_id?: number; laboratory_id?: number; is_active?: boolean }>({});
 
-  const [form] = useForm<SLAFormValues>({
-    initialValues: {
-      client_id: undefined as unknown as number,
-      laboratory_id: undefined,
-      service_type: '',
-      commitment_hours: undefined as unknown as number,
-      max_hours: undefined,
-      priority_weight: 0,
-      description: '',
-      is_active: true,
-    },
-    rules: {
-      client_id: [{ required: true, message: '请选择客户' }],
-      service_type: [{ required: true, message: '请输入服务类型' }],
-      commitment_hours: [{ required: true, message: '请输入承诺时间' }],
-    },
-  });
+  const [form] = Form.useForm<SLAFormValues>();
 
-  const toast = useToast();
+  const { message } = App.useApp();
   const errorShownRef = useRef(false);
   const isMountedRef = useRef(true);
 
@@ -68,12 +54,12 @@ export default function ClientSLAsPage() {
     } catch {
       if (isMountedRef.current && !errorShownRef.current) {
         errorShownRef.current = true;
-        toast.error('获取SLA配置列表失败');
+        message.error('获取SLA配置列表失败');
       }
     } finally {
       if (isMountedRef.current) setLoading(false);
     }
-  }, [filters, toast]);
+  }, [filters, message]);
 
   const fetchReferenceData = useCallback(async () => {
     try {
@@ -100,8 +86,8 @@ export default function ClientSLAsPage() {
     fetchSLAs();
   }, [fetchSLAs]);
 
-  const handlePaginationChange = (page: number, pageSize: number) => {
-    fetchSLAs(page, pageSize);
+  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
+    fetchSLAs(paginationConfig.current, paginationConfig.pageSize);
   };
 
   const handleAdd = () => {
@@ -129,30 +115,27 @@ export default function ClientSLAsPage() {
   const handleDelete = async (id: number) => {
     try {
       await clientSlaService.deleteClientSLA(id);
-      toast.success('删除成功');
+      message.success('删除成功');
       fetchSLAs(pagination.current, pagination.pageSize);
     } catch {
-      toast.error('删除失败');
+      message.error('删除失败');
     }
   };
 
   const handleModalOk = async () => {
-    const isValid = await form.validateFields();
-    if (!isValid) return;
-
     try {
-      const values = form.getFieldsValue();
+      const values = await form.validateFields();
       if (editingSLA) {
         await clientSlaService.updateClientSLA(editingSLA.id, values);
-        toast.success('更新成功');
+        message.success('更新成功');
       } else {
         await clientSlaService.createClientSLA(values as ClientSLAFormData);
-        toast.success('创建成功');
+        message.success('创建成功');
       }
       setModalVisible(false);
       fetchSLAs(pagination.current, pagination.pageSize);
     } catch {
-      toast.error(editingSLA ? '更新失败' : '创建失败');
+      message.error(editingSLA ? '更新失败' : '创建失败');
     }
   };
 
@@ -167,26 +150,23 @@ export default function ClientSLAsPage() {
     return lab ? lab.name : '-';
   };
 
-  const handleClientFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters(prev => ({ ...prev, client_id: v as number | undefined }));
+  const handleClientFilterChange = (value: number | undefined) => {
+    setFilters(prev => ({ ...prev, client_id: value }));
   };
 
-  const handleLabFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    setFilters(prev => ({ ...prev, laboratory_id: v as number | undefined }));
+  const handleLabFilterChange = (value: number | undefined) => {
+    setFilters(prev => ({ ...prev, laboratory_id: value }));
   };
 
-  const handleStatusFilterChange = (value: string | number | (string | number)[]) => {
-    const v = Array.isArray(value) ? value[0] : value;
-    if (v === undefined || v === '') {
+  const handleStatusFilterChange = (value: string | undefined) => {
+    if (value === undefined || value === '') {
       setFilters(prev => ({ ...prev, is_active: undefined }));
     } else {
-      setFilters(prev => ({ ...prev, is_active: v === 'true' }));
+      setFilters(prev => ({ ...prev, is_active: value === 'true' }));
     }
   };
 
-  const columns: TableColumn<ClientSLA>[] = [
+  const columns: ColumnsType<ClientSLA> = [
     {
       title: '客户',
       dataIndex: 'client_id',
@@ -243,17 +223,17 @@ export default function ClientSLAsPage() {
       key: 'action',
       width: 150,
       render: (_, record) => (
-        <div className="flex items-center gap-2">
-          <Button variant="link" size="small" icon={<PencilIcon className="w-4 h-4" />} onClick={() => handleEdit(record)}>编辑</Button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>编辑</Button>
           <Popconfirm
             title="确认删除"
             description="确定要删除此SLA配置吗？"
             onConfirm={() => handleDelete(record.id)}
             okText="确定"
             cancelText="取消"
-            okDanger
+            okButtonProps={{ danger: true }}
           >
-            <Button variant="link" size="small" danger icon={<TrashIcon className="w-4 h-4" />}>删除</Button>
+            <Button type="link" size="small" danger icon={<DeleteOutlined />}>删除</Button>
           </Popconfirm>
         </div>
       ),
@@ -262,13 +242,13 @@ export default function ClientSLAsPage() {
 
   return (
     <div>
-      <div className="mb-4 flex justify-between">
-        <div className="flex items-center gap-4 flex-wrap">
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <Select
             placeholder="客户"
             value={filters.client_id}
             onChange={handleClientFilterChange}
-            className="w-[180px]"
+            style={{ width: 180 }}
             allowClear
             options={clients.map(c => ({ label: c.name, value: c.id }))}
           />
@@ -276,7 +256,7 @@ export default function ClientSLAsPage() {
             placeholder="实验室"
             value={filters.laboratory_id}
             onChange={handleLabFilterChange}
-            className="w-[180px]"
+            style={{ width: 180 }}
             allowClear
             options={laboratories.map(l => ({ label: l.name, value: l.id }))}
           />
@@ -284,7 +264,7 @@ export default function ClientSLAsPage() {
             placeholder="状态"
             value={filters.is_active === undefined ? undefined : (filters.is_active ? 'true' : 'false')}
             onChange={handleStatusFilterChange}
-            className="w-[100px]"
+            style={{ width: 100 }}
             allowClear
             options={[
               { label: '启用', value: 'true' },
@@ -292,7 +272,7 @@ export default function ClientSLAsPage() {
             ]}
           />
         </div>
-        <Button variant="primary" icon={<PlusIcon className="w-4 h-4" />} onClick={handleAdd}>新增SLA配置</Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>新增SLA配置</Button>
       </div>
 
       <Table
@@ -305,8 +285,8 @@ export default function ClientSLAsPage() {
           showSizeChanger: true,
           showQuickJumper: true,
           showTotal: (total) => `共 ${total} 条`,
-          onChange: handlePaginationChange,
         }}
+        onChange={handleTableChange}
         scroll={{ x: 1100 }}
       />
 
@@ -318,42 +298,46 @@ export default function ClientSLAsPage() {
         width={600}
         destroyOnClose
       >
-        <Form form={form as unknown as FormInstance} layout="vertical">
-          <FormItem name="client_id" label="客户">
+        <Form form={form} layout="vertical">
+          <Form.Item name="client_id" label="客户" rules={[{ required: true, message: '请选择客户' }]}>
             <Select
               placeholder="选择客户"
               options={clients.map(c => ({ label: `${c.name} (${c.code})`, value: c.id }))}
               disabled={!!editingSLA}
             />
-          </FormItem>
-          <FormItem name="laboratory_id" label="实验室" extra="留空则适用于所有实验室">
+          </Form.Item>
+          <Form.Item name="laboratory_id" label="实验室" extra="留空则适用于所有实验室">
             <Select
               placeholder="选择实验室（可选）"
               allowClear
               options={laboratories.map(l => ({ label: l.name, value: l.id }))}
             />
-          </FormItem>
-          <FormItem name="service_type" label="服务类型">
+          </Form.Item>
+          <Form.Item name="service_type" label="服务类型" rules={[{ required: true, message: '请输入服务类型' }]}>
             <Input placeholder="如：standard, express, priority" />
-          </FormItem>
-          <div className="grid grid-cols-2 gap-4">
-            <FormItem name="commitment_hours" label="承诺时间(小时)">
-              <InputNumber min={1} className="w-full" placeholder="目标完成时间" />
-            </FormItem>
-            <FormItem name="max_hours" label="最大时间(小时)">
-              <InputNumber min={1} className="w-full" placeholder="最长允许时间" />
-            </FormItem>
-          </div>
-          <FormItem name="priority_weight" label="优先权重" extra="0-30，数值越高优先级越高">
-            <InputNumber min={0} max={30} className="w-full" />
-          </FormItem>
-          <FormItem name="description" label="描述">
+          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="commitment_hours" label="承诺时间(小时)" rules={[{ required: true, message: '请输入承诺时间' }]}>
+                <InputNumber min={1} style={{ width: '100%' }} placeholder="目标完成时间" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="max_hours" label="最大时间(小时)">
+                <InputNumber min={1} style={{ width: '100%' }} placeholder="最长允许时间" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="priority_weight" label="优先权重" extra="0-30，数值越高优先级越高">
+            <InputNumber min={0} max={30} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="description" label="描述">
             <TextArea rows={2} placeholder="SLA配置说明" />
-          </FormItem>
+          </Form.Item>
           {editingSLA && (
-            <FormItem name="is_active" label="状态">
+            <Form.Item name="is_active" label="状态" valuePropName="checked">
               <Switch checkedChildren="启用" unCheckedChildren="停用" />
-            </FormItem>
+            </Form.Item>
           )}
         </Form>
       </Modal>
