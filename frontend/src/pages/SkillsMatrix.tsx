@@ -1,0 +1,316 @@
+import { useEffect, useState, useCallback, useRef } from 'react';
+import {
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  MagnifyingGlassIcon,
+} from '@heroicons/react/24/outline';
+import { Table, Button, Input, Select, Popconfirm, Tag, useToast, type TableColumn } from '../components/ui';
+import { skillService } from '../services/skillService';
+import { SkillModal } from '../components/skills/SkillModal';
+import { StatusTag } from '../components/common/StatusTag';
+import type { Skill, SkillCategory, SkillFilters } from '../types';
+
+const categoryOptions = [
+  { label: '全部类别', value: '' },
+  { label: '设备操作', value: 'equipment_operation' },
+  { label: '测试方法', value: 'testing_method' },
+  { label: '分析技术', value: 'analysis_technique' },
+  { label: '软件工具', value: 'software_tool' },
+  { label: '安全程序', value: 'safety_procedure' },
+  { label: '其他', value: 'other' },
+];
+
+const labTypeOptions = [
+  { label: '全部实验室', value: '' },
+  { label: '失效分析 (FA)', value: 'fa' },
+  { label: '可靠性测试', value: 'reliability' },
+];
+
+const categoryLabels: Record<string, string> = {
+  equipment_operation: '设备操作',
+  testing_method: '测试方法',
+  analysis_technique: '分析技术',
+  software_tool: '软件工具',
+  safety_procedure: '安全程序',
+  other: '其他',
+};
+
+const labTypeLabels: Record<string, string> = {
+  fa: 'FA',
+  reliability: '可靠性',
+};
+
+const categoryColors: Record<string, 'processing' | 'success' | 'warning' | 'error' | 'default'> = {
+  equipment_operation: 'processing',
+  testing_method: 'success',
+  analysis_technique: 'processing',
+  software_tool: 'warning',
+  safety_procedure: 'error',
+  other: 'default',
+};
+
+export default function SkillsMatrix() {
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
+  const [searchText, setSearchText] = useState('');
+  const [searchValue, setSearchValue] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [labTypeFilter, setLabTypeFilter] = useState('');
+  
+  // Refs to prevent duplicate error messages and track mount state
+  const errorShownRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const toast = useToast();
+
+  const fetchSkills = useCallback(
+    async (page = 1, pageSize = 10, search = '', category = '', labType = '') => {
+      setLoading(true);
+      try {
+        const response = await skillService.getSkills({
+          page,
+          page_size: pageSize,
+          search: search || undefined,
+          category: (category || undefined) as SkillCategory | undefined,
+          lab_type: labType || undefined,
+        } as SkillFilters & { page?: number; page_size?: number });
+        if (isMountedRef.current) {
+          setSkills(response.items);
+          setPagination({
+            current: response.page,
+            pageSize: response.page_size,
+            total: response.total,
+          });
+          errorShownRef.current = false;
+        }
+      } catch {
+        if (isMountedRef.current && !errorShownRef.current) {
+          errorShownRef.current = true;
+          toast.error('获取技能列表失败');
+        }
+      } finally {
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [toast]
+  );
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    fetchSkills();
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [fetchSkills]);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchValue !== searchText) {
+        setSearchText(searchValue);
+        fetchSkills(1, pagination.pageSize, searchValue, categoryFilter, labTypeFilter);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchValue, searchText, pagination.pageSize, categoryFilter, labTypeFilter, fetchSkills]);
+
+  const handleTableChange = (page: number, pageSize: number) => {
+    fetchSkills(page, pageSize, searchText, categoryFilter, labTypeFilter);
+  };
+
+  const handleCategoryChange = (value: string | number | (string | number)[]) => {
+    const v = Array.isArray(value) ? String(value[0]) : String(value);
+    setCategoryFilter(v);
+    fetchSkills(1, pagination.pageSize, searchText, v, labTypeFilter);
+  };
+
+  const handleLabTypeChange = (value: string | number | (string | number)[]) => {
+    const v = Array.isArray(value) ? String(value[0]) : String(value);
+    setLabTypeFilter(v);
+    fetchSkills(1, pagination.pageSize, searchText, categoryFilter, v);
+  };
+
+  const handleAdd = () => {
+    setEditingSkill(null);
+    setModalVisible(true);
+  };
+
+  const handleEdit = (record: Skill) => {
+    setEditingSkill(record);
+    setModalVisible(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await skillService.deleteSkill(id);
+      toast.success('删除成功');
+      fetchSkills(pagination.current, pagination.pageSize, searchText, categoryFilter, labTypeFilter);
+    } catch {
+      toast.error('删除失败');
+    }
+  };
+
+  const handleModalSuccess = () => {
+    setModalVisible(false);
+    setEditingSkill(null);
+    fetchSkills(pagination.current, pagination.pageSize, searchText, categoryFilter, labTypeFilter);
+  };
+
+  const handleModalCancel = () => {
+    setModalVisible(false);
+    setEditingSkill(null);
+  };
+
+  const columns: TableColumn<Skill>[] = [
+    {
+      title: '技能代码',
+      dataIndex: 'code',
+      key: 'code',
+      width: 120,
+    },
+    {
+      title: '技能名称',
+      dataIndex: 'name',
+      key: 'name',
+      width: 200,
+    },
+    {
+      title: '类别',
+      dataIndex: 'category',
+      key: 'category',
+      width: 120,
+      render: (category: unknown) => (
+        <Tag color={categoryColors[category as string] || 'default'}>
+          {categoryLabels[category as string] || (category as string)}
+        </Tag>
+      ),
+    },
+    {
+      title: '适用实验室',
+      dataIndex: 'lab_type',
+      key: 'lab_type',
+      width: 100,
+      render: (labType: unknown) => ((labType as string) ? labTypeLabels[labType as string] || (labType as string) : '通用'),
+    },
+    {
+      title: '需要认证',
+      dataIndex: 'requires_certification',
+      key: 'requires_certification',
+      width: 100,
+      render: (requires: unknown) => (
+        <Tag color={(requires as boolean) ? 'warning' : 'default'}>
+          {(requires as boolean) ? '是' : '否'}
+        </Tag>
+      ),
+    },
+    {
+      title: '认证有效期',
+      dataIndex: 'certification_validity_days',
+      key: 'certification_validity_days',
+      width: 120,
+      render: (days: unknown) => ((days as number) ? `${days}天` : '-'),
+    },
+    {
+      title: '状态',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      width: 80,
+      render: (isActive: unknown) => <StatusTag isActive={isActive as boolean} />,
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 150,
+      render: (_: unknown, record: Skill) => (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="link"
+            size="small"
+            onClick={() => handleEdit(record)}
+          >
+            <PencilIcon className="w-4 h-4 mr-1" />
+            编辑
+          </Button>
+          <Popconfirm
+            title="确认删除"
+            description={`确定要删除技能 "${record.name}" 吗？`}
+            onConfirm={() => handleDelete(record.id)}
+            okText="确定"
+            cancelText="取消"
+          >
+            <Button variant="link" size="small" danger>
+              <TrashIcon className="w-4 h-4 mr-1" />
+              删除
+            </Button>
+          </Popconfirm>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <Input
+            placeholder="搜索技能名称或代码"
+            prefix={<MagnifyingGlassIcon className="w-4 h-4 text-neutral-400" />}
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            className="w-64"
+            allowClear
+          />
+          <Select
+            value={categoryFilter}
+            onChange={handleCategoryChange}
+            options={categoryOptions}
+            className="w-36"
+          />
+          <Select
+            value={labTypeFilter}
+            onChange={handleLabTypeChange}
+            options={labTypeOptions}
+            className="w-36"
+          />
+        </div>
+        <Button variant="primary" onClick={handleAdd}>
+          <PlusIcon className="w-4 h-4 mr-1" />
+          新增技能
+        </Button>
+      </div>
+
+      <Table
+        columns={columns}
+        dataSource={skills}
+        rowKey="id"
+        loading={loading}
+        pagination={{
+          current: pagination.current,
+          pageSize: pagination.pageSize,
+          total: pagination.total,
+          showSizeChanger: true,
+          showQuickJumper: true,
+          showTotal: (total) => `共 ${total} 条`,
+          onChange: handleTableChange,
+        }}
+        scroll={{ x: 1100 }}
+      />
+
+      <SkillModal
+        visible={modalVisible}
+        skill={editingSkill}
+        onSuccess={handleModalSuccess}
+        onCancel={handleModalCancel}
+      />
+    </div>
+  );
+}
