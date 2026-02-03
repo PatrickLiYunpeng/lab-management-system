@@ -99,7 +99,7 @@ export function PersonnelShiftModal({
       width={500}
       okText="确定"
       cancelText="取消"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Form.Item name="personnel_id" label="人员" rules={[{ required: true, message: '请选择人员' }]}>

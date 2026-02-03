@@ -3,6 +3,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant
 import { Table, Button, Input, Popconfirm, Space, App } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { siteService } from '../services/siteService';
+import { isAbortError } from '../services/api';
 import { SiteModal } from '../components/sites/SiteModal';
 import { StatusTag } from '../components/common/StatusTag';
 import type { Site } from '../types';
@@ -39,11 +40,13 @@ export default function SitesPage() {
         total: response.total,
       });
       errorShownRef.current = false; // Reset on success
-    } catch {
-      // Only show error message once (prevents duplicate in React StrictMode)
-      if (!errorShownRef.current) {
-        errorShownRef.current = true;
-        message.error('获取站点列表失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        // Only show error message once (prevents duplicate in React StrictMode)
+        if (!errorShownRef.current) {
+          errorShownRef.current = true;
+          message.error('获取站点列表失败');
+        }
       }
     } finally {
       setLoading(false);
@@ -84,8 +87,10 @@ export default function SitesPage() {
       await siteService.deleteSite(id);
       message.success('删除成功');
       fetchSites(pagination.current, pagination.pageSize as number, searchText);
-    } catch {
-      message.error('删除失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('删除失败');
+      }
     }
   };
 

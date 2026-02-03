@@ -75,8 +75,8 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
     setLoading(true);
     try {
       const data = await equipmentService.getGanttData({
-        start_date: startDate.toISOString(),
-        end_date: endDate.toISOString(),
+        start_date: startDate.format('YYYY-MM-DD'),
+        end_date: endDate.format('YYYY-MM-DD'),
         laboratory_id: laboratoryId,
       });
       setEquipment(data.equipment);

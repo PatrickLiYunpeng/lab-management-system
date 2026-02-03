@@ -116,8 +116,10 @@ export default function AuditLogsPage() {
       setLaboratories(labsResponse.items);
       setActions(actionsResponse);
       setEntityTypes(typesResponse);
-    } catch {
-      console.error('Failed to fetch reference data');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        console.error('Failed to fetch reference data');
+      }
     }
   }, []);
 

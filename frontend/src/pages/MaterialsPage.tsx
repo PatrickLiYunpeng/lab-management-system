@@ -93,8 +93,10 @@ export default function MaterialsPage() {
     try {
       const allSites = await siteService.getAllSites();
       setSites(allSites);
-    } catch {
-      console.error('Failed to fetch sites');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        console.error('Failed to fetch sites');
+      }
     }
   }, []);
 
@@ -102,8 +104,10 @@ export default function MaterialsPage() {
     try {
       const response = await laboratoryService.getLaboratories({ page: 1, page_size: 100 });
       setLaboratories(response.items);
-    } catch {
-      console.error('Failed to fetch laboratories');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        console.error('Failed to fetch laboratories');
+      }
     }
   }, []);
 
@@ -111,8 +115,10 @@ export default function MaterialsPage() {
     try {
       const allClients = await materialService.getAllClients();
       setClients(allClients);
-    } catch {
-      console.error('Failed to fetch clients');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        console.error('Failed to fetch clients');
+      }
     }
   }, []);
 

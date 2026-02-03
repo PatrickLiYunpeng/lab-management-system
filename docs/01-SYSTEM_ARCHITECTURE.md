@@ -10,23 +10,28 @@ The Laboratory Management System (LMS) is a comprehensive laboratory operations 
 ## 2. 技术栈 Technology Stack
 
 ### 2.1 前端 Frontend
-- **框架**: React 19 + TypeScript
-- **样式**: Tailwind CSS 4.x
-- **UI组件**: Headless UI + 自定义组件
-- **图标**: Heroicons
-- **表格**: TanStack Table
-- **图表库**: Recharts
-- **状态管理**: Zustand
-- **HTTP客户端**: Axios
-- **日期处理**: Day.js
-- **构建工具**: Vite
+- **框架**: React 18.3 + TypeScript 5.9
+- **UI组件库**: Ant Design 5.24
+- **图标**: @ant-design/icons
+- **图表库**: Recharts 3.7
+- **状态管理**: Zustand 5.0
+- **路由**: React Router DOM 7.13
+- **HTTP客户端**: Axios 1.13
+- **日期处理**: Day.js 1.11
+- **构建工具**: Vite 7.2
+- **测试**: Playwright (E2E)
 
 ### 2.2 后端 Backend
-- **框架**: FastAPI (Python 3.11+)
-- **ORM**: SQLAlchemy 2.x
-- **数据库迁移**: Alembic
-- **认证**: JWT (JSON Web Tokens)
-- **数据库**: SQLite (开发) / MySQL 8.0 (生产)
+- **框架**: FastAPI 0.109 (Python 3.11+)
+- **ORM**: SQLAlchemy 2.0.25
+- **数据库迁移**: Alembic 1.13
+- **数据验证**: Pydantic 2.5
+- **认证**: JWT (python-jose)
+- **密码加密**: passlib + bcrypt
+- **速率限制**: slowapi
+- **PDF生成**: reportlab
+- **数据库**: MySQL 8.0 (生产) / SQLite (开发)
+- **测试**: pytest + httpx
 
 ### 2.3 部署 Deployment
 - **容器化**: Docker + Docker Compose
@@ -135,9 +140,14 @@ The Laboratory Management System (LMS) is a comprehensive laboratory operations 
 | 站点管理 | `/sites` | 管理多地点站点信息 |
 | 实验室管理 | `/laboratories` | 管理FA和可靠性实验室 |
 | 人员管理 | `/personnel` | 管理人员信息、技能、借调 |
+| 人员借调 | `/transfers` | 跨实验室人员借调管理 |
 | 设备管理 | `/equipment` | 管理设备信息、调度、维护 |
-| 技能管理 | `/skills`, `/skills-config` | 技能矩阵和技能配置 |
-| 客户管理 | `/clients` | 客户信息和SLA配置 |
+| 技能矩阵 | `/skills` | 人员技能熟练度矩阵展示 |
+| 技能配置 | `/skills-config` | 技能定义和配置 |
+| 班次管理 | `/shifts` | 工作班次定义和人员排班 |
+| 客户管理 | `/clients` | 客户信息管理 |
+| 客户SLA | `/client-slas` | 客户服务级别协议配置 |
+| 测试来源类别 | `/source-categories` | 测试样品来源分类管理 |
 
 ### 4.3 业务流程模块 Business Process Module
 
@@ -145,7 +155,7 @@ The Laboratory Management System (LMS) is a comprehensive laboratory operations 
 |------|------|----------|
 | 工单管理 | `/work-orders` | 创建、分配、执行、完成工单 |
 | 工单查询 | `/work-order-query` | 工单状态查询（Viewer角色可用） |
-| 物料管理 | `/materials` | 样品和耗材管理 |
+| 物料管理 | `/materials` | 样品和耗材管理、状态追踪 |
 | 任务交接 | `/handovers` | 班次交接和任务移交 |
 | 分析方法 | `/methods` | FA和可靠性测试方法定义 |
 
@@ -154,8 +164,8 @@ The Laboratory Management System (LMS) is a comprehensive laboratory operations 
 | 模块 | 路径 | 功能描述 |
 |------|------|----------|
 | 用户管理 | `/user-management` | 用户账户和权限管理（仅Admin） |
-| 审计日志 | `/audit-logs` | 系统操作审计记录 |
-| 系统设置 | `/settings` | 系统配置和个人设置 |
+| 审计日志 | `/audit-logs` | 系统操作审计记录、筛选查询 |
+| 系统设置 | `/settings` | 系统配置和权限矩阵管理 |
 
 ## 5. 数据流 Data Flow
 

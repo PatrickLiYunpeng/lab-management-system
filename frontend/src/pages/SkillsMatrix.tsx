@@ -8,6 +8,7 @@ import {
 import { App, Table, Button, Input, Select, Popconfirm, Tag } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { skillService } from '../services/skillService';
+import { isAbortError } from '../services/api';
 import { SkillModal } from '../components/skills/SkillModal';
 import { StatusTag } from '../components/common/StatusTag';
 import type { Skill, SkillCategory, SkillFilters } from '../types';
@@ -91,10 +92,12 @@ export default function SkillsMatrix() {
           });
           errorShownRef.current = false;
         }
-      } catch {
-        if (isMountedRef.current && !errorShownRef.current) {
-          errorShownRef.current = true;
-          message.error('获取技能列表失败');
+      } catch (err) {
+        if (!isAbortError(err)) {
+          if (isMountedRef.current && !errorShownRef.current) {
+            errorShownRef.current = true;
+            message.error('获取技能列表失败');
+          }
         }
       } finally {
         if (isMountedRef.current) {
@@ -153,8 +156,10 @@ export default function SkillsMatrix() {
       await skillService.deleteSkill(id);
       message.success('删除成功');
       fetchSkills(pagination.current, pagination.pageSize, searchText, categoryFilter, labTypeFilter);
-    } catch {
-      message.error('删除失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('删除失败');
+      }
     }
   };
 

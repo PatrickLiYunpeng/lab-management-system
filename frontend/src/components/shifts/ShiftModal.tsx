@@ -99,7 +99,7 @@ export function ShiftModal({ visible, shift, onSuccess, onCancel }: ShiftModalPr
       width={600}
       okText="确定"
       cancelText="取消"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Row gutter={16}>

@@ -5,6 +5,7 @@ import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { transferService } from '../services/transferService';
 import { personnelService } from '../services/personnelService';
 import { laboratoryService } from '../services/laboratoryService';
+import { isAbortError } from '../services/api';
 import { TransferModal } from '../components/transfers/TransferModal';
 import { ApprovalModal } from '../components/transfers/ApprovalModal';
 import type { BorrowRequest, Personnel, Laboratory, BorrowRequestStatus } from '../types';
@@ -74,10 +75,12 @@ export default function Transfers() {
           });
           errorShownRef.current = false;
         }
-      } catch {
-        if (isMountedRef.current && !errorShownRef.current) {
-          errorShownRef.current = true;
-          message.error('获取借调申请列表失败');
+      } catch (err) {
+        if (!isAbortError(err)) {
+          if (isMountedRef.current && !errorShownRef.current) {
+            errorShownRef.current = true;
+            message.error('获取借调申请列表失败');
+          }
         }
       } finally {
         if (isMountedRef.current) {
@@ -98,9 +101,11 @@ export default function Transfers() {
         setPersonnelList(personnelRes.items);
         setLaboratories(labRes.items);
       }
-    } catch {
-      // Silent error for reference data
-      console.error('Failed to fetch reference data');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        // Silent error for reference data
+        console.error('Failed to fetch reference data');
+      }
     }
   }, []);
 

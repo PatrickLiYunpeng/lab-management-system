@@ -99,8 +99,10 @@ export default function EquipmentPage() {
     try {
       const allSites = await siteService.getAllSites();
       setSites(allSites);
-    } catch {
-      console.error('Failed to fetch sites');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        console.error('Failed to fetch sites');
+      }
     }
   }, []);
 
@@ -108,8 +110,10 @@ export default function EquipmentPage() {
     try {
       const response = await laboratoryService.getLaboratories({ page: 1, page_size: 100 });
       setLaboratories(response.items);
-    } catch {
-      console.error('Failed to fetch laboratories');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        console.error('Failed to fetch laboratories');
+      }
     }
   }, []);
 
@@ -189,8 +193,10 @@ export default function EquipmentPage() {
       await equipmentService.deleteEquipment(id);
       message.success('删除成功');
       fetchEquipment(pagination.current, pagination.pageSize);
-    } catch {
-      message.error('删除失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('删除失败');
+      }
     }
   };
 

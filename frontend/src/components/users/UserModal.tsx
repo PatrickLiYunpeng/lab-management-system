@@ -159,7 +159,7 @@ export function UserModal({ visible, user, onSuccess, onCancel }: UserModalProps
       okText={isEditing ? '保存' : '创建'}
       cancelText="取消"
       width={600}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Form.Item

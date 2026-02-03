@@ -8,6 +8,7 @@ import {
 import { workOrderService } from '../services/workOrderService';
 import { laboratoryService } from '../services/laboratoryService';
 import { materialService } from '../services/materialService';
+import { isAbortError } from '../services/api';
 import type { WorkOrder, Laboratory, Client, WorkOrderType, WorkOrderStatus, WorkOrderTask } from '../types';
 import { App, Button, Input, Select, Switch, Table, Tag, Modal, Tooltip, Progress, Card } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
@@ -102,10 +103,12 @@ export default function WorkOrderQueryPage() {
           });
           errorShownRef.current = false;
         }
-      } catch {
-        if (isMountedRef.current && !errorShownRef.current) {
-          errorShownRef.current = true;
-          message.error('获取工单列表失败');
+      } catch (err) {
+        if (!isAbortError(err)) {
+          if (isMountedRef.current && !errorShownRef.current) {
+            errorShownRef.current = true;
+            message.error('获取工单列表失败');
+          }
         }
       } finally {
         if (isMountedRef.current) {
@@ -122,8 +125,10 @@ export default function WorkOrderQueryPage() {
       if (isMountedRef.current) {
         setLaboratories(response.items);
       }
-    } catch {
-      console.error('Failed to fetch laboratories');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        console.error('Failed to fetch laboratories');
+      }
     }
   }, []);
 
@@ -133,8 +138,10 @@ export default function WorkOrderQueryPage() {
       if (isMountedRef.current) {
         setClients(allClients);
       }
-    } catch {
-      console.error('Failed to fetch clients');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        console.error('Failed to fetch clients');
+      }
     }
   }, []);
 
@@ -143,8 +150,10 @@ export default function WorkOrderQueryPage() {
     try {
       const taskList = await workOrderService.getTasks(workOrderId);
       setTasks(taskList);
-    } catch {
-      message.error('获取任务列表失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('获取任务列表失败');
+      }
     } finally {
       setTasksLoading(false);
     }

@@ -10,6 +10,7 @@ import { App, Table, Button, Input, Popconfirm, Tag, Spin, Card } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { personnelService } from '../services/personnelService';
 import { skillService } from '../services/skillService';
+import { isAbortError } from '../services/api';
 import { PersonnelSkillModal } from '../components/skills/PersonnelSkillModal';
 import { SkillBadge } from '../components/common/SkillBadge';
 import type { Personnel, PersonnelSkill, Skill } from '../types';
@@ -63,10 +64,12 @@ export default function SkillsConfig() {
         setPersonnelList(response.items);
         personnelErrorShownRef.current = false;
       }
-    } catch {
-      if (isMountedRef.current && !personnelErrorShownRef.current) {
-        personnelErrorShownRef.current = true;
-        message.error('获取人员列表失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        if (isMountedRef.current && !personnelErrorShownRef.current) {
+          personnelErrorShownRef.current = true;
+          message.error('获取人员列表失败');
+        }
       }
     } finally {
       if (isMountedRef.current) {
@@ -84,10 +87,12 @@ export default function SkillsConfig() {
         setPersonnelSkills(skills);
         skillsErrorShownRef.current = false;
       }
-    } catch {
-      if (isMountedRef.current && !skillsErrorShownRef.current) {
-        skillsErrorShownRef.current = true;
-        message.error('获取技能列表失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        if (isMountedRef.current && !skillsErrorShownRef.current) {
+          skillsErrorShownRef.current = true;
+          message.error('获取技能列表失败');
+        }
       }
     } finally {
       if (isMountedRef.current) {
@@ -103,9 +108,11 @@ export default function SkillsConfig() {
       if (isMountedRef.current) {
         setAvailableSkills(response.items);
       }
-    } catch {
-      // Silent error for secondary data
-      console.error('Failed to fetch available skills');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        // Silent error for secondary data
+        console.error('Failed to fetch available skills');
+      }
     }
   }, []);
 
@@ -158,8 +165,10 @@ export default function SkillsConfig() {
       await skillService.removePersonnelSkill(selectedPersonnel.id, skillId);
       message.success('技能已移除');
       fetchPersonnelSkills(selectedPersonnel.id);
-    } catch {
-      message.error('移除技能失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('移除技能失败');
+      }
     }
   };
 

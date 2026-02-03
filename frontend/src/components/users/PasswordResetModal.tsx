@@ -64,7 +64,7 @@ export function PasswordResetModal({ visible, user, onSuccess, onCancel }: Passw
       okText="确认重置"
       cancelText="取消"
       width={400}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Form.Item

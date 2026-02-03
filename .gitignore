@@ -54,3 +54,5 @@ htmlcov/
 
 # Qoder
 .qoder/
+deploy-package/
+*.tar.gz

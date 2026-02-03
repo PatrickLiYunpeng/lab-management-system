@@ -69,7 +69,7 @@ export function SiteModal({ visible, site, onSuccess, onCancel }: SiteModalProps
       width={700}
       okText="确定"
       cancelText="取消"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Row gutter={16}>

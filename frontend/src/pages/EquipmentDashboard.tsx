@@ -328,8 +328,10 @@ export function EquipmentDashboard() {
         ]);
         setSites(sitesData);
         setLaboratories(labsData.items);
-      } catch {
-        console.error('Failed to load reference data');
+      } catch (err) {
+        if (!isAbortError(err)) {
+          console.error('Failed to load reference data');
+        }
       }
     };
     loadReferenceData();
@@ -378,8 +380,8 @@ export function EquipmentDashboard() {
     setGanttLoading(true);
     try {
       const params: Record<string, string | number | AbortSignal | undefined> = {
-        start_date: ganttStartDate.toISOString(),
-        end_date: ganttEndDate.toISOString(),
+        start_date: ganttStartDate.format('YYYY-MM-DD'),
+        end_date: ganttEndDate.format('YYYY-MM-DD'),
         signal,
       };
       if (siteId) params.site_id = siteId;

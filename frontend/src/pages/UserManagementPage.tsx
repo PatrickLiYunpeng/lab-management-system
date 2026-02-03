@@ -11,6 +11,7 @@ import {
 import { Table, Button, Input, Select, Tag, Popconfirm, Tooltip, App, Space } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { userService } from '../services/userService';
+import { isAbortError } from '../services/api';
 import { UserModal } from '../components/users/UserModal';
 import { PasswordResetModal } from '../components/users/PasswordResetModal';
 import type { User } from '../types';
@@ -81,10 +82,12 @@ export default function UserManagementPage() {
           total: response.total,
         });
         errorShownRef.current = false;
-      } catch {
-        if (!errorShownRef.current) {
-          errorShownRef.current = true;
-          message.error('获取用户列表失败');
+      } catch (err) {
+        if (!isAbortError(err)) {
+          if (!errorShownRef.current) {
+            errorShownRef.current = true;
+            message.error('获取用户列表失败');
+          }
         }
       } finally {
         setLoading(false);
@@ -148,8 +151,10 @@ export default function UserManagementPage() {
         message.success('用户已启用');
       }
       fetchUsers(pagination.current, pagination.pageSize, searchText, roleFilter, statusFilter);
-    } catch {
-      message.error('操作失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('操作失败');
+      }
     }
   };
 
@@ -158,8 +163,10 @@ export default function UserManagementPage() {
       await userService.deleteUser(id);
       message.success('删除成功');
       fetchUsers(pagination.current, pagination.pageSize, searchText, roleFilter, statusFilter);
-    } catch {
-      message.error('删除失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('删除失败');
+      }
     }
   };
 

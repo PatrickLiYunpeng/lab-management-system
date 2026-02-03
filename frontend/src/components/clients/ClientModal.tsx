@@ -112,7 +112,7 @@ export function ClientModal({ visible, client, onSuccess, onCancel }: ClientModa
       width={700}
       okText="确定"
       cancelText="取消"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         {/* 基本信息 */}

@@ -118,7 +118,7 @@ export function SkillModal({ visible, skill, onSuccess, onCancel }: SkillModalPr
       width={700}
       okText="确定"
       cancelText="取消"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Row gutter={16}>

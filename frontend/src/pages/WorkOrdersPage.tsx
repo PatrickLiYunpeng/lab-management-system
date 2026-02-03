@@ -94,8 +94,10 @@ export default function WorkOrdersPage() {
     try {
       const allSites = await siteService.getAllSites();
       setSites(allSites);
-    } catch {
-      console.error('Failed to fetch sites');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        console.error('Failed to fetch sites');
+      }
     }
   }, []);
 
@@ -103,8 +105,10 @@ export default function WorkOrdersPage() {
     try {
       const response = await laboratoryService.getLaboratories({ page: 1, page_size: 100 });
       setLaboratories(response.items);
-    } catch {
-      console.error('Failed to fetch laboratories');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        console.error('Failed to fetch laboratories');
+      }
     }
   }, []);
 
@@ -112,8 +116,10 @@ export default function WorkOrdersPage() {
     try {
       const allClients = await materialService.getAllClients();
       setClients(allClients);
-    } catch {
-      console.error('Failed to fetch clients');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        console.error('Failed to fetch clients');
+      }
     }
   }, []);
 
@@ -186,8 +192,10 @@ export default function WorkOrdersPage() {
       await workOrderService.deleteWorkOrder(id);
       message.success('删除成功');
       fetchWorkOrders(pagination.current, pagination.pageSize);
-    } catch {
-      message.error('删除失败，只能删除草稿或已取消的工单');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('删除失败,只能删除草稿或已取消的工单');
+      }
     }
   };
 
@@ -212,8 +220,10 @@ export default function WorkOrdersPage() {
         client_id: filters.client_id,
       });
       message.success('PDF报告已下载');
-    } catch {
-      message.error('导出PDF失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('导出PDF失败');
+      }
     }
   };
 
@@ -222,8 +232,10 @@ export default function WorkOrdersPage() {
       message.info('正在生成PDF报告...');
       await reportService.exportWorkOrderDetailPdf(workOrderId);
       message.success('PDF报告已下载');
-    } catch {
-      message.error('导出PDF失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('导出PDF失败');
+      }
     }
   };
 

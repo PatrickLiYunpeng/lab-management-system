@@ -7,6 +7,7 @@ import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { clientSlaService } from '../services/clientSlaService';
 import { clientService } from '../services/clientService';
 import { laboratoryService } from '../services/laboratoryService';
+import { isAbortError } from '../services/api';
 import type { ClientSLA, ClientSLAFormData, Client, Laboratory } from '../types';
 
 const { TextArea } = Input;
@@ -51,10 +52,12 @@ export default function ClientSLAsPage() {
         setPagination({ current: response.page, pageSize: response.page_size, total: response.total });
         errorShownRef.current = false;
       }
-    } catch {
-      if (isMountedRef.current && !errorShownRef.current) {
-        errorShownRef.current = true;
-        message.error('获取SLA配置列表失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        if (isMountedRef.current && !errorShownRef.current) {
+          errorShownRef.current = true;
+          message.error('获取SLA配置列表失败');
+        }
       }
     } finally {
       if (isMountedRef.current) setLoading(false);
@@ -71,8 +74,10 @@ export default function ClientSLAsPage() {
         setClients(clientsData);
         setLaboratories(labsData.items);
       }
-    } catch {
-      console.error('Failed to fetch reference data');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        console.error('Failed to fetch reference data');
+      }
     }
   }, []);
 
@@ -117,8 +122,10 @@ export default function ClientSLAsPage() {
       await clientSlaService.deleteClientSLA(id);
       message.success('删除成功');
       fetchSLAs(pagination.current, pagination.pageSize);
-    } catch {
-      message.error('删除失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('删除失败');
+      }
     }
   };
 
@@ -134,8 +141,10 @@ export default function ClientSLAsPage() {
       }
       setModalVisible(false);
       fetchSLAs(pagination.current, pagination.pageSize);
-    } catch {
-      message.error(editingSLA ? '更新失败' : '创建失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error(editingSLA ? '更新失败' : '创建失败');
+      }
     }
   };
 
@@ -296,7 +305,7 @@ export default function ClientSLAsPage() {
         onOk={handleModalOk}
         onCancel={() => setModalVisible(false)}
         width={600}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical">
           <Form.Item name="client_id" label="客户" rules={[{ required: true, message: '请选择客户' }]}>

@@ -6,6 +6,7 @@ import { StarFilled } from '@ant-design/icons';
 import { App, Table, Button, Input, Popconfirm, Tag, Modal, InputNumber, Switch, Form, Row, Col } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { clientSlaService } from '../services/clientSlaService';
+import { isAbortError } from '../services/api';
 import type { TestingSourceCategory, TestingSourceCategoryFormData } from '../types';
 
 const { TextArea } = Input;
@@ -49,10 +50,12 @@ export default function TestingSourceCategoriesPage() {
         setPagination({ current: response.page, pageSize: response.page_size, total: response.total });
         errorShownRef.current = false;
       }
-    } catch {
-      if (isMountedRef.current && !errorShownRef.current) {
-        errorShownRef.current = true;
-        message.error('获取来源类别列表失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        if (isMountedRef.current && !errorShownRef.current) {
+          errorShownRef.current = true;
+          message.error('获取来源类别列表失败');
+        }
       }
     } finally {
       if (isMountedRef.current) setLoading(false);
@@ -276,7 +279,7 @@ export default function TestingSourceCategoriesPage() {
         onOk={handleModalOk}
         onCancel={() => setModalVisible(false)}
         width={500}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical">
           <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>

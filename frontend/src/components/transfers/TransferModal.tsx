@@ -92,7 +92,7 @@ export function TransferModal({
       width={600}
       okText="提交申请"
       cancelText="取消"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Form.Item name="personnel_id" label="借调人员" rules={[{ required: true, message: '请选择借调人员' }]}>

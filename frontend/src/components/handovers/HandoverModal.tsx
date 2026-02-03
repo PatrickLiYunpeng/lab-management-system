@@ -83,7 +83,7 @@ export function HandoverModal({ visible, task, onSuccess, onCancel }: HandoverMo
       width={600}
       okText="创建交接"
       cancelText="取消"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Form.Item name="to_technician_id" label="接收技术员">

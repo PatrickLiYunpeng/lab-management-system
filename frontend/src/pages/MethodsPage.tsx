@@ -58,8 +58,10 @@ export default function MethodsPage() {
       try {
         const response = await laboratoryService.getLaboratories({ page: 1, page_size: 100 });
         setLaboratories(response.items);
-      } catch {
-        // Ignore - secondary data
+      } catch (err) {
+        if (!isAbortError(err)) {
+          // Ignore - secondary data
+        }
       }
     };
     loadLaboratories();
@@ -132,8 +134,10 @@ export default function MethodsPage() {
       await methodService.deleteMethod(id);
       message.success('方法已删除');
       fetchMethods();
-    } catch {
-      message.error('删除失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('删除失败');
+      }
     }
   };
 

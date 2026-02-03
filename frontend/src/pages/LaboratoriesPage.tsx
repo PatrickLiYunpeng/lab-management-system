@@ -74,9 +74,11 @@ export default function LaboratoriesPage() {
     try {
       const allSites = await siteService.getAllSites();
       setSites(allSites);
-    } catch {
-      // Silently log error - don't show user-facing message for secondary data
-      console.error('Failed to fetch sites');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        // Silently log error - don't show user-facing message for secondary data
+        console.error('Failed to fetch sites');
+      }
     } finally {
       setSitesLoading(false);
     }
@@ -141,8 +143,10 @@ export default function LaboratoriesPage() {
       await laboratoryService.deleteLaboratory(id);
       message.success('删除成功');
       fetchLaboratories(pagination.current as number, pagination.pageSize as number);
-    } catch {
-      message.error('删除失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('删除失败');
+      }
     }
   };
 

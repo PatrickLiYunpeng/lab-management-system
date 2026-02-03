@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     # API配置
     API_V1_PREFIX: str = "/api/v1"
     
-    # 数据库配置（开发使用SQLite，生产使用MySQL）
-    DATABASE_URL: str = "sqlite:///./lab_management.db"
+    # 数据库配置（使用MySQL）
+    DATABASE_URL: str = "mysql+pymysql://lab_user:lab_password_2026@localhost/lab_management?charset=utf8mb4"
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
     

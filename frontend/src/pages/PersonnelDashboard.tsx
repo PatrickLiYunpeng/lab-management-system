@@ -8,6 +8,7 @@ import {
   CalendarOutlined,
   InboxOutlined,
 } from '@ant-design/icons';
+import { isAbortError } from '../services/api';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -340,8 +341,10 @@ export function PersonnelDashboard() {
         ]);
         setSites(sitesData);
         setLaboratories(labsData.items);
-      } catch {
-        console.error('Failed to load reference data');
+      } catch (err) {
+        if (!isAbortError(err)) {
+          console.error('Failed to load reference data');
+        }
       }
     };
     loadReferenceData();
@@ -362,8 +365,10 @@ export function PersonnelDashboard() {
       const efficiency = await dashboardService.getPersonnelEfficiency(params);
       setEfficiencyData(efficiency);
       setLastUpdated(new Date());
-    } catch {
-      setError(language === 'zh' ? '加载人员数据失败' : 'Failed to load personnel data');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        setError(language === 'zh' ? '加载人员数据失败' : 'Failed to load personnel data');
+      }
     } finally {
       setLoading(false);
     }
@@ -377,8 +382,8 @@ export function PersonnelDashboard() {
     setGanttLoading(true);
     try {
       const params: Record<string, string | number | undefined> = {
-        start_date: ganttStartDate.toISOString(),
-        end_date: ganttEndDate.toISOString(),
+        start_date: ganttStartDate.format('YYYY-MM-DD'),
+        end_date: ganttEndDate.format('YYYY-MM-DD'),
       };
       if (siteId) params.site_id = siteId;
       if (laboratoryId) params.laboratory_id = laboratoryId;
@@ -405,8 +410,10 @@ export function PersonnelDashboard() {
       });
       
       setPersonnelSummary(summary);
-    } catch {
-      console.error('Failed to load Gantt data');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        console.error('Failed to load Gantt data');
+      }
     } finally {
       setGanttLoading(false);
     }

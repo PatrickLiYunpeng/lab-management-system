@@ -160,7 +160,7 @@ export function MethodModal({ visible, method, onSuccess, onCancel }: MethodModa
       width={800}
       okText="确定"
       cancelText="取消"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Row gutter={16}>

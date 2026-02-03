@@ -10,6 +10,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { shiftService } from '../services/shiftService';
 import { personnelService } from '../services/personnelService';
 import { laboratoryService } from '../services/laboratoryService';
+import { isAbortError } from '../services/api';
 import { ShiftModal } from '../components/shifts/ShiftModal';
 import { PersonnelShiftModal } from '../components/shifts/PersonnelShiftModal';
 import type { Shift, PersonnelShift, Personnel, Laboratory } from '../types';
@@ -56,10 +57,12 @@ export default function ShiftsPage() {
         setShifts(response.items);
         shiftsErrorShownRef.current = false;
       }
-    } catch {
-      if (isMountedRef.current && !shiftsErrorShownRef.current) {
-        shiftsErrorShownRef.current = true;
-        message.error('获取班次列表失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        if (isMountedRef.current && !shiftsErrorShownRef.current) {
+          shiftsErrorShownRef.current = true;
+          message.error('获取班次列表失败');
+        }
       }
     } finally {
       if (isMountedRef.current) {
@@ -76,10 +79,12 @@ export default function ShiftsPage() {
         setPersonnelShifts(response);
         personnelShiftsErrorShownRef.current = false;
       }
-    } catch {
-      if (isMountedRef.current && !personnelShiftsErrorShownRef.current) {
-        personnelShiftsErrorShownRef.current = true;
-        message.error('获取人员班次失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        if (isMountedRef.current && !personnelShiftsErrorShownRef.current) {
+          personnelShiftsErrorShownRef.current = true;
+          message.error('获取人员班次失败');
+        }
       }
     } finally {
       if (isMountedRef.current) {
@@ -98,9 +103,11 @@ export default function ShiftsPage() {
         setAllPersonnel(personnelRes.items);
         setLaboratories(labRes.items.filter((lab) => lab.is_active));
       }
-    } catch {
-      // Silent error for reference data
-      console.error('Failed to fetch reference data');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        // Silent error for reference data
+        console.error('Failed to fetch reference data');
+      }
     }
   }, []);
 
@@ -156,8 +163,10 @@ export default function ShiftsPage() {
       if (selectedShift?.id === id) {
         setSelectedShift(null);
       }
-    } catch {
-      message.error('删除失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('删除失败');
+      }
     }
   };
 
@@ -184,8 +193,10 @@ export default function ShiftsPage() {
       if (selectedShift) {
         fetchPersonnelShifts(selectedShift.id);
       }
-    } catch {
-      message.error('移除失败');
+    } catch (err) {
+      if (!isAbortError(err)) {
+        message.error('移除失败');
+      }
     }
   };
 

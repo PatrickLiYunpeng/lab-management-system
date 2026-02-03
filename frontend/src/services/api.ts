@@ -36,9 +36,7 @@ api.interceptors.request.use(
 );
 
 // === 401 Auto-Logout Configuration ===
-// Set to true to enable automatic logout on 401 responses
-// Currently DISABLED - set to true to re-enable
-const ENABLE_401_AUTO_LOGOUT = false;
+const ENABLE_401_AUTO_LOGOUT = true;
 
 // Flag to prevent multiple 401 handlers from executing
 let isRedirectingToLogin = false;
@@ -47,8 +45,6 @@ let isRedirectingToLogin = false;
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    // 401 auto-logout is temporarily disabled
-    // To re-enable: set ENABLE_401_AUTO_LOGOUT = true above
     if (ENABLE_401_AUTO_LOGOUT && error.response?.status === 401 && !isRedirectingToLogin) {
       isRedirectingToLogin = true;
       // Clear all auth state - both the token and Zustand persisted state

@@ -94,7 +94,7 @@ export function ApprovalModal({
       width={500}
       okText="确认"
       cancelText="取消"
-      destroyOnClose
+      destroyOnHidden
     >
       {borrowRequest && (
         <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#fafafa', borderRadius: 6, fontSize: 14 }}>

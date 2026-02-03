@@ -65,8 +65,10 @@ export function DashboardPage() {
         ]);
         setSites(sitesData);
         setLaboratories(labsData.items);
-      } catch {
-        console.error('Failed to load reference data');
+      } catch (err) {
+        if (!isAbortError(err)) {
+          console.error('Failed to load reference data');
+        }
       }
     };
     loadReferenceData();
@@ -212,31 +214,31 @@ export function DashboardPage() {
 
   const taskPieData = taskStats
     ? [
-        { name: 'Completed', value: taskStats.completed_tasks, color: '#52c41a' },
-        { name: 'Pending', value: taskStats.total_tasks - taskStats.completed_tasks, color: '#1677ff' },
+        { name: '已完成', value: taskStats.completed_tasks, color: '#52c41a' },
+        { name: '待处理', value: taskStats.total_tasks - taskStats.completed_tasks, color: '#1677ff' },
       ]
     : [];
 
   const slaPieData = slaPerf
     ? [
-        { name: 'On Time', value: slaPerf.on_time_count, color: '#52c41a' },
-        { name: 'Overdue', value: slaPerf.overdue_count, color: '#ff4d4f' },
+        { name: '准时', value: slaPerf.on_time_count, color: '#52c41a' },
+        { name: '逾期', value: slaPerf.overdue_count, color: '#ff4d4f' },
       ]
     : [];
 
   const taskPerformanceData = taskStats
     ? [
-        { name: 'On Time', value: taskStats.on_time_tasks, color: '#52c41a' },
-        { name: 'Delayed', value: taskStats.delayed_tasks, color: '#faad14' },
+        { name: '准时', value: taskStats.on_time_tasks, color: '#52c41a' },
+        { name: '延迟', value: taskStats.delayed_tasks, color: '#faad14' },
       ]
     : [];
 
   const personnelColumns: ColumnsType<PersonnelEfficiency> = [
-    { title: 'Employee ID', dataIndex: 'employee_id', width: 100 },
-    { title: 'Tasks', dataIndex: 'total_tasks', width: 70, align: 'center' },
-    { title: 'Completed', dataIndex: 'completed_tasks', width: 80, align: 'center' },
+    { title: '员工编号', dataIndex: 'employee_id', width: 100 },
+    { title: '任务数', dataIndex: 'total_tasks', width: 70, align: 'center' },
+    { title: '已完成', dataIndex: 'completed_tasks', width: 80, align: 'center' },
     {
-      title: 'Cycle Variance',
+      title: '周期偏差',
       dataIndex: 'average_cycle_variance',
       width: 100,
       align: 'center',
@@ -247,7 +249,7 @@ export function DashboardPage() {
       },
     },
     {
-      title: 'Efficiency',
+      title: '效率',
       dataIndex: 'efficiency_rate',
       width: 100,
       render: (rate: number) => (
@@ -272,11 +274,11 @@ export function DashboardPage() {
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
           <div>
             <Title level={4} style={{ margin: 0 }}>
-              {viewMode === 'realtime' ? 'Real-time Dashboard' : 'Historical Analysis'}
+              {viewMode === 'realtime' ? '实时仪表板' : '历史分析'}
             </Title>
             {lastUpdated && (
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Last updated: {lastUpdated.toLocaleTimeString()}
+                最后更新: {lastUpdated.toLocaleTimeString()}
               </Text>
             )}
           </div>
@@ -286,8 +288,8 @@ export function DashboardPage() {
               value={viewMode}
               onChange={(value) => setViewMode(value as ViewMode)}
               options={[
-                { label: <Space><BarChartOutlined />Real-time</Space>, value: 'realtime' },
-                { label: <Space><HistoryOutlined />Historical</Space>, value: 'historical' },
+                { label: <Space><BarChartOutlined />实时</Space>, value: 'realtime' },
+                { label: <Space><HistoryOutlined />历史</Space>, value: 'historical' },
               ]}
             />
 
@@ -308,7 +310,7 @@ export function DashboardPage() {
             )}
 
             <Select
-              placeholder="All Sites"
+              placeholder="所有站点"
               value={siteId}
               onChange={(value) => {
                 setSiteId(value);
@@ -320,7 +322,7 @@ export function DashboardPage() {
             />
 
             <Select
-              placeholder="All Laboratories"
+              placeholder="所有实验室"
               value={laboratoryId}
               onChange={setLaboratoryId}
               allowClear
@@ -328,7 +330,7 @@ export function DashboardPage() {
               options={filteredLaboratories.map(l => ({ label: l.name, value: l.id }))}
             />
 
-            <Tooltip title="Refresh">
+            <Tooltip title="刷新">
               <Button
                 icon={<ReloadOutlined />}
                 onClick={() => fetchDashboard()}
@@ -342,7 +344,7 @@ export function DashboardPage() {
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '96px 0' }}>
           <Spin size="large" />
-          <Text type="secondary" style={{ marginTop: 16 }}>Loading dashboard data...</Text>
+          <Text type="secondary" style={{ marginTop: 16 }}>加载仪表板数据中...</Text>
         </div>
       ) : (
         <>
@@ -354,7 +356,7 @@ export function DashboardPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <UserOutlined style={{ fontSize: 32, color: '#1677ff' }} />
                     <div>
-                      <Text type="secondary" style={{ fontSize: 14 }}>Personnel</Text>
+                      <Text type="secondary" style={{ fontSize: 14 }}>人员</Text>
                       <div style={{ fontSize: 24, fontWeight: 600 }}>
                         {summary.available_personnel}
                         <Text type="secondary" style={{ fontSize: 14, marginLeft: 4 }}>/ {summary.total_personnel}</Text>
@@ -367,7 +369,7 @@ export function DashboardPage() {
                     showInfo={false}
                     style={{ marginTop: 8 }}
                   />
-                  <Text type="secondary" style={{ fontSize: 12 }}>Available</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>可用</Text>
                 </Card>
               </Col>
               <Col xs={24} sm={12} lg={6}>
@@ -375,7 +377,7 @@ export function DashboardPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <ToolOutlined style={{ fontSize: 32, color: '#52c41a' }} />
                     <div>
-                      <Text type="secondary" style={{ fontSize: 14 }}>Equipment</Text>
+                      <Text type="secondary" style={{ fontSize: 14 }}>设备</Text>
                       <div style={{ fontSize: 24, fontWeight: 600 }}>
                         {summary.available_equipment}
                         <Text type="secondary" style={{ fontSize: 14, marginLeft: 4 }}>/ {summary.total_equipment}</Text>
@@ -389,7 +391,7 @@ export function DashboardPage() {
                     showInfo={false}
                     style={{ marginTop: 8 }}
                   />
-                  <Text type="secondary" style={{ fontSize: 12 }}>Available</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>可用</Text>
                 </Card>
               </Col>
               <Col xs={24} sm={12} lg={6}>
@@ -397,7 +399,7 @@ export function DashboardPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <FileTextOutlined style={{ fontSize: 32, color: '#faad14' }} />
                     <div>
-                      <Text type="secondary" style={{ fontSize: 14 }}>Active Work Orders</Text>
+                      <Text type="secondary" style={{ fontSize: 14 }}>活跃工单</Text>
                       <div style={{ fontSize: 24, fontWeight: 600, color: summary.overdue_work_orders ? '#ff4d4f' : undefined }}>
                         {summary.active_work_orders}
                       </div>
@@ -406,7 +408,7 @@ export function DashboardPage() {
                   {summary.overdue_work_orders > 0 && (
                     <Tag color="error" style={{ marginTop: 8 }}>
                       <ExclamationCircleOutlined style={{ marginRight: 4 }} />
-                      {summary.overdue_work_orders} overdue
+                      {summary.overdue_work_orders} 逾期
                     </Tag>
                   )}
                 </Card>
@@ -416,7 +418,7 @@ export function DashboardPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <InboxOutlined style={{ fontSize: 32, color: '#1677ff' }} />
                     <div>
-                      <Text type="secondary" style={{ fontSize: 14 }}>Pending Materials</Text>
+                      <Text type="secondary" style={{ fontSize: 14 }}>待处理物料</Text>
                       <div style={{ fontSize: 24, fontWeight: 600, color: summary.overdue_materials ? '#ff4d4f' : undefined }}>
                         {summary.pending_materials}
                       </div>
@@ -425,7 +427,7 @@ export function DashboardPage() {
                   {summary.overdue_materials > 0 && (
                     <Tag color="error" style={{ marginTop: 8 }}>
                       <ExclamationCircleOutlined style={{ marginRight: 4 }} />
-                      {summary.overdue_materials} overdue
+                      {summary.overdue_materials} 逾期
                     </Tag>
                   )}
                 </Card>
@@ -441,11 +443,11 @@ export function DashboardPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <FileTextOutlined style={{ fontSize: 32, color: '#1677ff' }} />
                     <div>
-                      <Text type="secondary" style={{ fontSize: 14 }}>Total Tasks</Text>
+                      <Text type="secondary" style={{ fontSize: 14 }}>总任务数</Text>
                       <div style={{ fontSize: 24, fontWeight: 600 }}>{taskStats?.total_tasks || 0}</div>
                     </div>
                   </div>
-                  <Text type="secondary" style={{ fontSize: 12, marginTop: 8, display: 'block' }}>In period</Text>
+                  <Text type="secondary" style={{ fontSize: 12, marginTop: 8, display: 'block' }}>时间段内</Text>
                 </Card>
               </Col>
               <Col xs={24} sm={12} lg={6}>
@@ -453,7 +455,7 @@ export function DashboardPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <CheckCircleOutlined style={{ fontSize: 32, color: '#52c41a' }} />
                     <div>
-                      <Text type="secondary" style={{ fontSize: 14 }}>Completion Rate</Text>
+                      <Text type="secondary" style={{ fontSize: 14 }}>完成率</Text>
                       <div style={{ fontSize: 24, fontWeight: 600, color: (taskStats?.completion_rate || 0) >= 80 ? '#52c41a' : '#faad14' }}>
                         {taskStats?.completion_rate || 0}%
                       </div>
@@ -466,7 +468,7 @@ export function DashboardPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <ClockCircleOutlined style={{ fontSize: 32, color: '#1677ff' }} />
                     <div>
-                      <Text type="secondary" style={{ fontSize: 14 }}>SLA Compliance</Text>
+                      <Text type="secondary" style={{ fontSize: 14 }}>SLA合规率</Text>
                       <div style={{ fontSize: 24, fontWeight: 600, color: (slaPerf?.sla_compliance_rate || 0) >= 90 ? '#52c41a' : '#ff4d4f' }}>
                         {slaPerf?.sla_compliance_rate || 0}%
                       </div>
@@ -479,10 +481,10 @@ export function DashboardPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <HistoryOutlined style={{ fontSize: 32, color: '#1677ff' }} />
                     <div>
-                      <Text type="secondary" style={{ fontSize: 14 }}>Avg Completion Days</Text>
+                      <Text type="secondary" style={{ fontSize: 14 }}>平均完成天数</Text>
                       <div style={{ fontSize: 24, fontWeight: 600 }}>
                         {slaPerf?.average_days_to_complete?.toFixed(1) || '-'}
-                        <Text type="secondary" style={{ fontSize: 14, marginLeft: 4 }}>days</Text>
+                        <Text type="secondary" style={{ fontSize: 14, marginLeft: 4 }}>天</Text>
                       </div>
                     </div>
                   </div>
@@ -494,7 +496,7 @@ export function DashboardPage() {
           {/* Task Completion & SLA Performance */}
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
             <Col xs={24} lg={12}>
-              <Card size="small" title="Task Completion">
+              <Card size="small" title="任务完成情况">
                 <Row gutter={16}>
                   <Col span={12}>
                     <ResponsiveContainer width="100%" height={200}>
@@ -518,14 +520,14 @@ export function DashboardPage() {
                   </Col>
                   <Col span={12} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <div style={{ marginBottom: 16 }}>
-                      <Text type="secondary" style={{ fontSize: 12 }}>Completion Rate</Text>
+                      <Text type="secondary" style={{ fontSize: 12 }}>完成率</Text>
                       <div style={{ fontSize: 20, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                         <CheckCircleOutlined style={{ color: '#52c41a' }} />
                         {taskStats?.completion_rate || 0}%
                       </div>
                     </div>
                     <div>
-                      <Text type="secondary" style={{ fontSize: 12 }}>On-Time Rate</Text>
+                      <Text type="secondary" style={{ fontSize: 12 }}>准时率</Text>
                       <div style={{ fontSize: 20, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                         <ClockCircleOutlined style={{ color: '#1677ff' }} />
                         {taskStats?.on_time_rate || 0}%
@@ -536,7 +538,7 @@ export function DashboardPage() {
               </Card>
             </Col>
             <Col xs={24} lg={12}>
-              <Card size="small" title="SLA Performance">
+              <Card size="small" title="SLA绩效">
                 <Row gutter={16}>
                   <Col span={12}>
                     <ResponsiveContainer width="100%" height={200}>
@@ -560,15 +562,15 @@ export function DashboardPage() {
                   </Col>
                   <Col span={12} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <div style={{ marginBottom: 16 }}>
-                      <Text type="secondary" style={{ fontSize: 12 }}>SLA Compliance</Text>
+                      <Text type="secondary" style={{ fontSize: 12 }}>SLA合规率</Text>
                       <div style={{ fontSize: 20, fontWeight: 600, color: (slaPerf?.sla_compliance_rate || 0) >= 90 ? '#52c41a' : '#ff4d4f' }}>
                         {slaPerf?.sla_compliance_rate || 0}%
                       </div>
                     </div>
                     <div>
-                      <Text type="secondary" style={{ fontSize: 12 }}>Avg Completion Days</Text>
+                      <Text type="secondary" style={{ fontSize: 12 }}>平均完成天数</Text>
                       <div style={{ fontSize: 20, fontWeight: 600 }}>
-                        {slaPerf?.average_days_to_complete?.toFixed(1) || '-'} days
+                        {slaPerf?.average_days_to_complete?.toFixed(1) || '-'} 天
                       </div>
                     </div>
                   </Col>
@@ -580,7 +582,7 @@ export function DashboardPage() {
           {/* Cycle Performance & Workload Trend */}
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
             <Col xs={24} lg={12}>
-              <Card size="small" title="Task Cycle Performance">
+              <Card size="small" title="任务周期绩效">
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={taskPerformanceData} layout="vertical" margin={{ left: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -596,11 +598,11 @@ export function DashboardPage() {
                 </ResponsiveContainer>
                 <div style={{ borderTop: '1px solid #f0f0f0', marginTop: 12, paddingTop: 12, display: 'flex', gap: 32 }}>
                   <div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>On-Time Tasks:</Text>{' '}
+                    <Text type="secondary" style={{ fontSize: 12 }}>准时任务:</Text>{' '}
                     <span style={{ fontWeight: 500, color: '#52c41a' }}>{taskStats?.on_time_tasks || 0}</span>
                   </div>
                   <div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>Delayed Tasks:</Text>{' '}
+                    <Text type="secondary" style={{ fontSize: 12 }}>延迟任务:</Text>{' '}
                     <span style={{ fontWeight: 500, color: '#faad14' }}>{taskStats?.delayed_tasks || 0}</span>
                   </div>
                 </div>
@@ -609,9 +611,9 @@ export function DashboardPage() {
             <Col xs={24} lg={12}>
               <Card 
                 size="small" 
-                title="Daily Workload Trend"
+                title="每日工作量趋势"
                 extra={
-                  <Tooltip title="Export CSV">
+                  <Tooltip title="导出CSV">
                     <Button
                       type="text"
                       size="small"
@@ -639,7 +641,7 @@ export function DashboardPage() {
                       yAxisId="left"
                       type="monotone"
                       dataKey="total_work_hours"
-                      name="Work Hours"
+                      name="工作时长"
                       stroke="#1677ff"
                       fill="#1677ff"
                       fillOpacity={0.3}
@@ -648,7 +650,7 @@ export function DashboardPage() {
                       yAxisId="right"
                       type="monotone"
                       dataKey="tasks_completed"
-                      name="Tasks Completed"
+                      name="完成任务数"
                       stroke="#52c41a"
                       strokeWidth={2}
                     />
@@ -663,9 +665,9 @@ export function DashboardPage() {
             <Col xs={24} lg={12}>
               <Card 
                 size="small" 
-                title={`Equipment Utilization ${viewMode === 'historical' ? '' : '(7 Days)'}`}
+                title={`设备利用率 ${viewMode === 'historical' ? '' : '(近7天)'}`}
                 extra={
-                  <Tooltip title="Export CSV">
+                  <Tooltip title="导出CSV">
                     <Button
                       type="text"
                       size="small"
@@ -680,7 +682,7 @@ export function DashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" domain={[0, 100]} unit="%" />
                     <YAxis type="category" dataKey="equipment_name" width={100} tick={{ fontSize: 11 }} />
-                    <RechartsTooltip formatter={(value) => [`${(value as number).toFixed(1)}%`, 'Utilization']} />
+                    <RechartsTooltip formatter={(value) => [`${(value as number).toFixed(1)}%`, '利用率']} />
                     <Bar dataKey="utilization_rate" radius={[0, 4, 4, 0]}>
                       {equipmentUtil.map((entry, index) => (
                         <Cell
@@ -700,9 +702,9 @@ export function DashboardPage() {
             <Col xs={24} lg={12}>
               <Card 
                 size="small" 
-                title={`Personnel Efficiency ${viewMode === 'historical' ? '' : '(30 Days)'}`}
+                title={`人员效率 ${viewMode === 'historical' ? '' : '(近30天)'}`}
                 extra={
-                  <Tooltip title="Export CSV">
+                  <Tooltip title="导出CSV">
                     <Button
                       type="text"
                       size="small"
