@@ -25,7 +25,7 @@ class TestClientSLAs:
         sla_data = {
             "client_id": test_client["id"],
             "laboratory_id": test_laboratory["id"],
-            "service_type": "express",
+            "method_type": "analysis",
             "commitment_hours": 24,
             "max_hours": 48,
             "priority_weight": 15,
@@ -39,7 +39,7 @@ class TestClientSLAs:
         assert response.status_code == 201
         data = response.json()
         assert data["client_id"] == test_client["id"]
-        assert data["service_type"] == "express"
+        assert data["method_type"] == "analysis"
         assert data["commitment_hours"] == 24
         assert data["priority_weight"] == 15
     
@@ -47,7 +47,7 @@ class TestClientSLAs:
         """Test creating SLA with invalid client ID."""
         sla_data = {
             "client_id": 99999,
-            "service_type": "standard",
+            "method_type": "analysis",
             "commitment_hours": 48
         }
         response = client.post(

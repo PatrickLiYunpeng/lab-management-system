@@ -46,12 +46,15 @@ export default function ClientGroupPage() {
   ];
 
   return (
-    <Tabs
-      activeKey={activeKey}
-      onChange={setActiveKey}
-      items={items}
-      size="large"
-      style={{ marginTop: -16 }}
-    />
+    <div data-testid="client-group-page">
+      <Tabs
+        activeKey={activeKey}
+        onChange={setActiveKey}
+        items={items}
+        size="large"
+        style={{ marginTop: -16 }}
+        data-testid="client-group-tabs"
+      />
+    </div>
   );
 }

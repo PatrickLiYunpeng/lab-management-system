@@ -62,6 +62,16 @@ export interface ScheduleCreateData {
   notes?: string;
 }
 
+// 设备名下设备列表响应（用于关键设备调度）
+export interface EquipmentByNameResponse {
+  equipment_name_id: number;
+  equipment_name: string;
+  is_critical: boolean;
+  site_id: number;
+  items: Equipment[];
+  total: number;
+}
+
 export const equipmentService = {
   async getEquipment(params: GetEquipmentParams = {}): Promise<PaginatedResponse<Equipment>> {
     const { signal, ...queryParams } = params;
@@ -96,6 +106,7 @@ export const equipmentService = {
     site_id?: number;
     equipment_type?: string;
     category?: string;
+    equipment_ids?: number[];  // 指定设备ID列表（用于关键设备调度）
   }): Promise<GanttData> {
     const response = await api.get<GanttData>('/equipment/schedules/gantt', { params });
     return response.data;
@@ -177,6 +188,14 @@ export const equipmentService = {
 
   async getEquipmentNameById(id: number): Promise<EquipmentNameWithCategory> {
     const response = await api.get<EquipmentNameWithCategory>(`/equipment-names/${id}`);
+    return response.data;
+  },
+
+  // 获取指定设备名在指定站点下的所有设备实例（用于关键设备调度）
+  async getEquipmentByName(nameId: number, siteId: number, isActive: boolean = true): Promise<EquipmentByNameResponse> {
+    const response = await api.get<EquipmentByNameResponse>(`/equipment-names/${nameId}/equipment`, {
+      params: { site_id: siteId, is_active: isActive }
+    });
     return response.data;
   },
 

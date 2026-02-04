@@ -1,0 +1,18 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:5173",
+      "localStorage": [
+        {
+          "name": "auth-storage",
+          "value": "{\"state\":{\"user\":{\"username\":\"admin\",\"email\":\"admin@lab.com\",\"full_name\":\"系统管理员\",\"role\":\"admin\",\"primary_laboratory_id\":null,\"primary_site_id\":null,\"id\":1,\"is_active\":true,\"is_superuser\":false,\"created_at\":\"2026-02-01T23:42:09\",\"updated_at\":\"2026-02-04T20:42:34\",\"last_login\":\"2026-02-04T20:42:34\"},\"token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzAzMjQxNTMsInN1YiI6IjEifQ.dhbdHFbC2KX1XU17ncb04P0TfHuiTs_NAmFWAMYtaps\",\"isAuthenticated\":true,\"accessibleModules\":[{\"code\":\"work_orders\",\"label\":\"工单管理\",\"route\":\"/work-orders\",\"icon\":\"FileTextOutlined\",\"category\":\"core\",\"description\":\"创建、管理和跟踪工单\",\"display_order\":1},{\"code\":\"dashboard\",\"label\":\"仪表板\",\"route\":\"/dashboard\",\"icon\":\"AppstoreOutlined\",\"category\":\"analytics\",\"description\":\"查看数据分析和统计图表\",\"display_order\":2},{\"code\":\"locations\",\"label\":\"地址管理\",\"route\":\"/locations\",\"icon\":\"BankOutlined\",\"category\":\"resource\",\"description\":\"管理站点和实验室信息\",\"display_order\":3},{\"code\":\"personnel\",\"label\":\"人员管理\",\"route\":\"/personnel\",\"icon\":\"TeamOutlined\",\"category\":\"resource\",\"description\":\"管理人员信息、技能和排班\",\"display_order\":4},{\"code\":\"equipment\",\"label\":\"设备管理\",\"route\":\"/equipment\",\"icon\":\"ToolOutlined\",\"category\":\"resource\",\"description\":\"管理设备信息、类型和调度\",\"display_order\":5},{\"code\":\"methods\",\"label\":\"分析/测试方法\",\"route\":\"/methods\",\"icon\":\"SolutionOutlined\",\"category\":\"resource\",\"description\":\"管理分析和测试方法\",\"display_order\":6},{\"code\":\"materials\",\"label\":\"物料管理\",\"route\":\"/materials\",\"icon\":\"InboxOutlined\",\"category\":\"core\",\"description\":\"管理物料库存和分配\",\"display_order\":7},{\"code\":\"clients\",\"label\":\"客户与SLA\",\"route\":\"/clients\",\"icon\":\"UsergroupAddOutlined\",\"category\":\"resource\",\"description\":\"管理客户信息和服务级别协议\",\"display_order\":8},{\"code\":\"products\",\"label\":\"产品管理\",\"route\":\"/products\",\"icon\":\"ShoppingOutlined\",\"category\":\"resource\",\"description\":\"管理产品信息\",\"display_order\":9},{\"code\":\"handovers\",\"label\":\"任务交接\",\"route\":\"/handovers\",\"icon\":\"SwapOutlined\",\"category\":\"core\",\"description\":\"管理任务交接流程\",\"display_order\":10},{\"code\":\"audit_logs\",\"label\":\"审计日志\",\"route\":\"/audit-logs\",\"icon\":\"FileTextOutlined\",\"category\":\"admin\",\"description\":\"查看系统操作日志\",\"display_order\":11},{\"code\":\"user_management\",\"label\":\"用户管理\",\"route\":\"/user-management\",\"icon\":\"UsergroupAddOutlined\",\"category\":\"admin\",\"description\":\"管理系统用户账号\",\"display_order\":12},{\"code\":\"settings\",\"label\":\"系统设置\",\"route\":\"/settings\",\"icon\":\"SettingOutlined\",\"category\":\"admin\",\"description\":\"系统配置和权限管理\",\"display_order\":13}],\"modulesLoaded\":true},\"version\":0}"
+        },
+        {
+          "name": "access_token",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzAzMjQxNTMsInN1YiI6IjEifQ.dhbdHFbC2KX1XU17ncb04P0TfHuiTs_NAmFWAMYtaps"
+        }
+      ]
+    }
+  ]
+}

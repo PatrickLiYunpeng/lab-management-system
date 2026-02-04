@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Form, Input, InputNumber, Switch, Select, App } from 'antd';
+import { Modal, Form, Input, Switch, Select, App } from 'antd';
 import { equipmentService } from '../../services/equipmentService';
 import type {
   EquipmentCategoryRecord,
@@ -22,7 +22,7 @@ interface NameFormValues {
   category_id: number;
   name: string;
   description?: string;
-  display_order: number;
+  is_critical: boolean;
   is_active: boolean;
 }
 
@@ -44,12 +44,12 @@ export function EquipmentNameModal({
           category_id: equipmentName.category_id,
           name: equipmentName.name,
           description: equipmentName.description,
-          display_order: equipmentName.display_order,
+          is_critical: equipmentName.is_critical,
           is_active: equipmentName.is_active,
         });
       } else {
         form.resetFields();
-        form.setFieldsValue({ display_order: 0, is_active: true });
+        form.setFieldsValue({ is_critical: false, is_active: true });
       }
     }
   }, [visible, equipmentName, form]);
@@ -63,7 +63,7 @@ export function EquipmentNameModal({
         const updateData: EquipmentNameUpdateData = {
           name: values.name,
           description: values.description,
-          display_order: values.display_order,
+          is_critical: values.is_critical,
           is_active: values.is_active,
         };
         await equipmentService.updateEquipmentName(equipmentName.id, updateData);
@@ -73,7 +73,7 @@ export function EquipmentNameModal({
           category_id: values.category_id,
           name: values.name,
           description: values.description,
-          display_order: values.display_order,
+          is_critical: values.is_critical,
           is_active: values.is_active,
         };
         await equipmentService.createEquipmentName(formData);
@@ -138,8 +138,13 @@ export function EquipmentNameModal({
           <TextArea rows={2} placeholder="请输入设备名描述" />
         </Form.Item>
 
-        <Form.Item name="display_order" label="排序序号">
-          <InputNumber min={0} placeholder="排序序号" style={{ width: '100%' }} />
+        <Form.Item 
+          name="is_critical" 
+          label="关键设备" 
+          valuePropName="checked"
+          rules={[{ required: true, message: '请选择是否为关键设备' }]}
+        >
+          <Switch checkedChildren="是" unCheckedChildren="否" />
         </Form.Item>
 
         <Form.Item name="is_active" label="启用状态" valuePropName="checked">

@@ -253,7 +253,7 @@ export interface EquipmentNameRecord {
   category_id: number;
   name: string;
   description?: string;
-  display_order: number;
+  is_critical: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -279,7 +279,7 @@ export interface EquipmentNameFormData {
   category_id: number;
   name: string;
   description?: string;
-  display_order?: number;
+  is_critical?: boolean;
   is_active?: boolean;
 }
 
@@ -358,7 +358,7 @@ export interface EquipmentFilters {
   laboratory_id?: number;
   site_id?: number;
   equipment_type?: EquipmentType;
-  category?: EquipmentCategory;
+  category?: EquipmentCategory | string[];  // 支持单值或数组
   category_id?: number;
   equipment_name_id?: number;
   status?: EquipmentStatus;
@@ -742,6 +742,9 @@ export interface WorkOrderFilters {
   assigned_engineer_id?: number;
   search?: string;
   overdue_only?: boolean;
+  priority_level?: number;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
 }
 
 // Skill types
@@ -911,6 +914,9 @@ export interface TaskFormData {
   required_equipment_id?: number;
   required_capacity?: number;
   standard_cycle_hours?: number;
+  // 关键设备调度时间（可选）
+  schedule_start_time?: string;
+  schedule_end_time?: string;
 }
 
 export interface TaskUpdateData {
@@ -923,6 +929,10 @@ export interface TaskUpdateData {
   status?: TaskStatus;
   notes?: string;
   results?: string;
+  // 关键设备调度更新
+  update_schedule?: boolean;
+  schedule_start_time?: string;
+  schedule_end_time?: string;
 }
 
 // Technician matching types
@@ -1152,6 +1162,7 @@ export interface MethodFilters {
   method_type?: MethodType;
   category?: string;
   laboratory_id?: number;
+  site_id?: number;  // 按站点筛选方法
   is_active?: boolean;
   search?: string;
 }

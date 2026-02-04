@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, DownloadOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
 import { Table, Button, Input, Select, Tag, Switch, Progress, Popconfirm, App, Space } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
+import type { SorterResult } from 'antd/es/table/interface';
 import { workOrderService } from '../services/workOrderService';
 import { laboratoryService } from '../services/laboratoryService';
 import { siteService } from '../services/siteService';
@@ -49,8 +50,11 @@ export default function WorkOrdersPage() {
     client_id?: number;
     work_order_type?: WorkOrderType;
     status?: WorkOrderStatus;
+    priority_level?: number;
     overdue_only?: boolean;
     work_order_id?: number;
+    sort_by?: string;
+    sort_order?: 'asc' | 'desc';
   }>({
     search: '',
     overdue_only: false,
@@ -93,7 +97,10 @@ export default function WorkOrdersPage() {
           client_id: filters.client_id,
           work_order_type: filters.work_order_type,
           status: filters.status,
+          priority_level: filters.priority_level,
           overdue_only: filters.overdue_only,
+          sort_by: filters.sort_by,
+          sort_order: filters.sort_order,
           signal,
         });
         setWorkOrders(response.items);
@@ -176,11 +183,31 @@ export default function WorkOrdersPage() {
     return () => clearTimeout(timer);
   }, [searchValue, filters.search]);
 
-  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
+  const handleTableChange = (
+    paginationConfig: TablePaginationConfig,
+    _filters: Record<string, unknown>,
+    sorter: SorterResult<WorkOrder> | SorterResult<WorkOrder>[]
+  ) => {
     // 翻页时清除 work_order_id 过滤，恢复正常列表
     if (filters.work_order_id) {
       setFilters((prev) => ({ ...prev, work_order_id: undefined }));
     }
+    
+    const singleSorter = Array.isArray(sorter) ? sorter[0] : sorter;
+    let sortBy: string | undefined;
+    let sortOrder: 'asc' | 'desc' | undefined;
+    
+    if (singleSorter?.field && singleSorter?.order) {
+      const field = singleSorter.field as string;
+      if (field === 'priority_score' || field === 'priority') {
+        sortBy = 'priority_score';
+      } else if (field === 'sla_deadline') {
+        sortBy = 'sla_deadline';
+      }
+      sortOrder = singleSorter.order === 'ascend' ? 'asc' : 'desc';
+    }
+    
+    setFilters((prev) => ({ ...prev, sort_by: sortBy, sort_order: sortOrder }));
     fetchWorkOrders(paginationConfig.current, paginationConfig.pageSize);
   };
 
@@ -314,7 +341,9 @@ export default function WorkOrdersPage() {
     {
       title: '优先级',
       key: 'priority',
+      dataIndex: 'priority_score',
       width: 100,
+      sorter: true,
       render: (_, record) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Progress
@@ -337,6 +366,14 @@ export default function WorkOrdersPage() {
         const config = statusLabels[status] || { text: status, color: 'default' as const };
         return <Tag color={config.color}>{config.text}</Tag>;
       },
+    },
+    {
+      title: '截止日',
+      dataIndex: 'sla_deadline',
+      key: 'sla_deadline',
+      width: 110,
+      sorter: true,
+      render: (value) => value ? new Date(value as string).toLocaleDateString('zh-CN') : '-',
     },
     {
       title: '创建时间',
@@ -387,7 +424,7 @@ export default function WorkOrdersPage() {
   ];
 
   return (
-    <div>
+    <div data-testid="work-orders-page">
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
         <Space wrap>
           <Input
@@ -397,6 +434,7 @@ export default function WorkOrdersPage() {
             onChange={(e) => setSearchValue(e.target.value)}
             style={{ width: 200 }}
             allowClear
+            data-testid="work-orders-search-input"
           />
           <Select
             placeholder="实验室"
@@ -408,6 +446,7 @@ export default function WorkOrdersPage() {
               label: `${lab.name} (${lab.code})`,
               value: lab.id,
             }))}
+            data-testid="work-orders-lab-filter"
           />
           <Select
             placeholder="客户"
@@ -419,6 +458,7 @@ export default function WorkOrdersPage() {
               label: client.name,
               value: client.id,
             }))}
+            data-testid="work-orders-client-filter"
           />
           <Select
             placeholder="类型"
@@ -430,6 +470,7 @@ export default function WorkOrdersPage() {
               label,
               value,
             }))}
+            data-testid="work-orders-type-filter"
           />
           <Select
             placeholder="状态"
@@ -441,6 +482,22 @@ export default function WorkOrdersPage() {
               label: config.text,
               value,
             }))}
+            data-testid="work-orders-status-filter"
+          />
+          <Select
+            placeholder="优先级"
+            value={filters.priority_level}
+            onChange={(value) => setFilters((prev) => ({ ...prev, priority_level: value || undefined }))}
+            style={{ width: 100 }}
+            allowClear
+            options={[
+              { value: 1, label: 'P1' },
+              { value: 2, label: 'P2' },
+              { value: 3, label: 'P3' },
+              { value: 4, label: 'P4' },
+              { value: 5, label: 'P5' },
+            ]}
+            data-testid="work-orders-priority-filter"
           />
           <Space>
             <span style={{ fontSize: 14, color: '#666' }}>仅逾期:</span>
@@ -448,14 +505,15 @@ export default function WorkOrdersPage() {
               checked={filters.overdue_only}
               onChange={handleOverdueFilterChange}
               size="small"
+              data-testid="work-orders-overdue-switch"
             />
           </Space>
         </Space>
         <Space>
-          <Button icon={<DownloadOutlined />} onClick={handleExportPdf}>
+          <Button icon={<DownloadOutlined />} onClick={handleExportPdf} data-testid="work-orders-export-button">
             导出PDF
           </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} data-testid="work-orders-add-button">
             新增工单
           </Button>
         </Space>
@@ -495,6 +553,7 @@ export default function WorkOrdersPage() {
             />
           ),
         }}
+        data-testid="work-orders-table"
       />
 
       <WorkOrderModal

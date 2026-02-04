@@ -234,6 +234,14 @@ export function EquipmentTypeManager() {
       render: (value) => value || '-',
     },
     {
+      title: '关键设备',
+      dataIndex: 'is_critical',
+      key: 'is_critical',
+      width: 90,
+      align: 'center',
+      render: (value) => (value ? <span style={{ color: '#f5222d' }}>是</span> : <span style={{ color: '#8c8c8c' }}>否</span>),
+    },
+    {
       title: '状态',
       dataIndex: 'is_active',
       key: 'is_active',

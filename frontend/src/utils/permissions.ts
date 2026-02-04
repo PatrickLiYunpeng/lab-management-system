@@ -1,5 +1,77 @@
 import { UserRole } from '../types';
 
+// ============================================================================
+// Module Permission Definitions
+// ============================================================================
+
+// 模块代码定义
+export const ModuleCode = {
+  WORK_ORDERS: 'work_orders',
+  DASHBOARD: 'dashboard',
+  LOCATIONS: 'locations',
+  PERSONNEL: 'personnel',
+  EQUIPMENT: 'equipment',
+  METHODS: 'methods',
+  MATERIALS: 'materials',
+  CLIENTS: 'clients',
+  PRODUCTS: 'products',
+  HANDOVERS: 'handovers',
+  AUDIT_LOGS: 'audit_logs',
+  USER_MANAGEMENT: 'user_management',
+  SETTINGS: 'settings',
+} as const;
+
+export type ModuleCode = typeof ModuleCode[keyof typeof ModuleCode];
+
+// 路由到模块代码的映射
+export const routeToModule: Record<string, ModuleCode> = {
+  '/dashboard': ModuleCode.DASHBOARD,
+  '/equipment-dashboard': ModuleCode.DASHBOARD,
+  '/personnel-dashboard': ModuleCode.DASHBOARD,
+  '/locations': ModuleCode.LOCATIONS,
+  '/sites': ModuleCode.LOCATIONS,
+  '/laboratories': ModuleCode.LOCATIONS,
+  '/personnel': ModuleCode.PERSONNEL,
+  '/skills': ModuleCode.PERSONNEL,
+  '/skills-config': ModuleCode.PERSONNEL,
+  '/transfers': ModuleCode.PERSONNEL,
+  '/shifts': ModuleCode.PERSONNEL,
+  '/equipment': ModuleCode.EQUIPMENT,
+  '/methods': ModuleCode.METHODS,
+  '/materials': ModuleCode.MATERIALS,
+  '/work-orders': ModuleCode.WORK_ORDERS,
+  '/work-order-query': ModuleCode.WORK_ORDERS,
+  '/clients': ModuleCode.CLIENTS,
+  '/client-slas': ModuleCode.CLIENTS,
+  '/source-categories': ModuleCode.CLIENTS,
+  '/products': ModuleCode.PRODUCTS,
+  '/handovers': ModuleCode.HANDOVERS,
+  '/audit-logs': ModuleCode.AUDIT_LOGS,
+  '/user-management': ModuleCode.USER_MANAGEMENT,
+  '/settings': ModuleCode.SETTINGS,
+};
+
+// 模块标签
+export const moduleLabels: Record<ModuleCode, string> = {
+  [ModuleCode.WORK_ORDERS]: '工单管理',
+  [ModuleCode.DASHBOARD]: '仪表板',
+  [ModuleCode.LOCATIONS]: '位置管理',
+  [ModuleCode.PERSONNEL]: '人员管理',
+  [ModuleCode.EQUIPMENT]: '设备管理',
+  [ModuleCode.METHODS]: '方法管理',
+  [ModuleCode.MATERIALS]: '材料管理',
+  [ModuleCode.CLIENTS]: '客户管理',
+  [ModuleCode.PRODUCTS]: '产品管理',
+  [ModuleCode.HANDOVERS]: '交接管理',
+  [ModuleCode.AUDIT_LOGS]: '审计日志',
+  [ModuleCode.USER_MANAGEMENT]: '用户管理',
+  [ModuleCode.SETTINGS]: '系统设置',
+};
+
+// ============================================================================
+// Operation Permission Definitions
+// ============================================================================
+
 // Permission definitions based on 权限矩阵 (Permission Matrix)
 export const Permission = {
   // User management
@@ -97,7 +169,10 @@ const rolePermissions: Record<UserRole, Permission[]> = {
   
   engineer: [
     Permission.ASSIGN_PERSONNEL_SKILLS,
+    Permission.MANAGE_EQUIPMENT,
     Permission.MANAGE_METHODS,
+    Permission.MANAGE_MATERIALS,
+    Permission.MANAGE_SHIFTS,
     Permission.CREATE_WORK_ORDER,
     Permission.CREATE_SUBTASK,
     Permission.ASSIGN_TECHNICIAN,
@@ -136,9 +211,10 @@ export const routePermissions: Record<string, Permission[]> = {
   '/dashboard': [Permission.VIEW_LAB_DASHBOARD],
   '/equipment-dashboard': [Permission.VIEW_LAB_DASHBOARD],
   '/personnel-dashboard': [Permission.VIEW_LAB_DASHBOARD],
+  '/locations': [Permission.MANAGE_LOCATIONS],
   '/sites': [Permission.MANAGE_SITES],
   '/laboratories': [Permission.MANAGE_LABORATORIES],
-  '/personnel': [Permission.VIEW_LAB_DASHBOARD], // All roles with dashboard access can view personnel
+  '/personnel': [Permission.MANAGE_SHIFTS], // 需要人员管理权限
   '/skills': [Permission.VIEW_SKILLS_MATRIX],
   '/skills-config': [Permission.MANAGE_SKILLS],
   '/transfers': [Permission.INITIATE_BORROW],
@@ -151,6 +227,7 @@ export const routePermissions: Record<string, Permission[]> = {
   '/clients': [Permission.MANAGE_CLIENTS],
   '/client-slas': [Permission.MANAGE_CLIENT_SLA],
   '/source-categories': [Permission.MANAGE_SOURCE_CATEGORIES],
+  '/products': [Permission.MANAGE_CLIENTS], // 产品管理需要客户管理权限
   '/handovers': [Permission.INITIATE_HANDOVER],
   '/audit-logs': [Permission.VIEW_AUDIT_LOGS],
   '/user-management': [Permission.MANAGE_USERS], // Admin only
@@ -358,4 +435,58 @@ export function getFirstAccessibleRoute(role: UserRole | undefined): string {
   }
   
   return '/login';
+}
+
+// ============================================================================
+// Module Permission Functions
+// ============================================================================
+
+// 用户可访问的模块列表（从后端获取后存储在此）
+let userAccessibleModules: ModuleCode[] = [];
+
+// 设置用户可访问的模块列表
+export function setUserAccessibleModules(modules: ModuleCode[]): void {
+  userAccessibleModules = modules;
+}
+
+// 获取用户可访问的模块列表
+export function getUserAccessibleModules(): ModuleCode[] {
+  return userAccessibleModules;
+}
+
+// 清除用户模块权限（登出时调用）
+export function clearUserModulePermissions(): void {
+  userAccessibleModules = [];
+}
+
+// 检查用户是否可以访问指定模块
+export function canAccessModule(moduleCode: ModuleCode): boolean {
+  // 如果还没有加载模块权限，默认允许访问
+  if (userAccessibleModules.length === 0) {
+    return true;
+  }
+  return userAccessibleModules.includes(moduleCode);
+}
+
+// 检查用户是否可以访问指定路由（基于模块权限）
+export function canAccessRouteByModule(route: string): boolean {
+  const moduleCode = routeToModule[route];
+  
+  // 如果路由没有映射到模块，允许访问
+  if (!moduleCode) {
+    return true;
+  }
+  
+  return canAccessModule(moduleCode);
+}
+
+// 综合检查用户是否可以访问路由（同时检查操作权限和模块权限）
+export function canAccessRouteWithModuleCheck(role: UserRole | undefined, route: string): boolean {
+  // 首先检查操作权限
+  if (!canAccessRoute(role, route)) {
+    return false;
+  }
+  
+  // 然后检查模块权限
+  return canAccessRouteByModule(route);
 }

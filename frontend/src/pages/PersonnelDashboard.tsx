@@ -135,15 +135,6 @@ const ROLE_COLORS: Record<string, string> = {
 const PERSONNEL_ROLES = ['engineer', 'technician', 'manager', 'admin'] as const;
 type PersonnelRoleKey = typeof PERSONNEL_ROLES[number];
 
-const TASK_STATUS_COLORS: Record<string, string> = {
-  pending: '#faad14',
-  assigned: '#1677ff',
-  in_progress: '#52c41a',
-  completed: '#8c8c8c',
-  blocked: '#ff4d4f',
-  cancelled: '#d9d9d9',
-};
-
 // 优先级颜色定义（按priority_level: 1=最高优先级，5=最低优先级）
 const PRIORITY_COLORS: Record<number, string> = {
   1: '#ef4444',  // 紧急 - 红色

@@ -272,7 +272,7 @@ export default function PersonnelPage() {
   ];
 
   return (
-    <div>
+    <div data-testid="personnel-page">
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
         <Space wrap>
           <Input
@@ -282,6 +282,7 @@ export default function PersonnelPage() {
             onChange={(e) => setSearchValue(e.target.value)}
             style={{ width: 200 }}
             allowClear
+            data-testid="personnel-search-input"
           />
           <Select
             placeholder="站点"
@@ -317,7 +318,7 @@ export default function PersonnelPage() {
             }))}
           />
         </Space>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} data-testid="personnel-add-button">
           新增人员
         </Button>
       </div>
@@ -335,6 +336,7 @@ export default function PersonnelPage() {
         }}
         onChange={handleTableChange}
         scroll={{ x: 1200 }}
+        data-testid="personnel-table"
       />
 
       <PersonnelModal

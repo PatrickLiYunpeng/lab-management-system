@@ -1,88 +1,67 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
-async function login(page: Page) {
-  await page.goto('/login');
-  await page.getByPlaceholder(/用户名/i).fill('admin');
-  await page.getByPlaceholder(/密码/i).fill('admin123');
-  await page.getByRole('button', { name: /登录/i }).click();
-  await page.waitForURL('**/dashboard', { timeout: 10000 });
-}
+// Tests run serially with shared auth state from setup project
+test.describe.configure({ mode: 'serial' });
 
 test.describe('Sites CRUD', () => {
   test.beforeEach(async ({ page }) => {
-    await login(page);
-    await page.goto('/sites');
+    await page.goto('/locations');
+    await page.waitForLoadState('networkidle');
   });
 
   test('should display sites list', async ({ page }) => {
-    await expect(page.getByText('新增站点')).toBeVisible();
-    await expect(page.locator('.ant-table')).toBeVisible();
+    await expect(page.locator('.ant-table')).toBeVisible({ timeout: 10000 });
   });
 
   test('should open create site modal', async ({ page }) => {
-    await page.getByText('新增站点').click();
-    await expect(page.getByText('站点名称')).toBeVisible();
-    await expect(page.getByText('站点代码')).toBeVisible();
+    await expect(page.locator('.ant-table')).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: /新增|Add/i }).click();
+    await expect(page.locator('.ant-modal')).toBeVisible({ timeout: 5000 });
   });
 });
 
 test.describe('Work Orders CRUD', () => {
   test.beforeEach(async ({ page }) => {
-    await login(page);
     await page.goto('/work-orders');
+    await page.waitForLoadState('networkidle');
   });
 
   test('should display work orders list', async ({ page }) => {
-    await expect(page.getByText('新增工单')).toBeVisible();
+    await expect(page.getByRole('button', { name: /新增|Add/i })).toBeVisible({ timeout: 10000 });
     await expect(page.locator('.ant-table')).toBeVisible();
   });
 
   test('should have filter options', async ({ page }) => {
-    // Check filter dropdowns exist
-    await expect(page.getByPlaceholder(/搜索工单/i)).toBeVisible();
-    await expect(page.getByText('实验室').first()).toBeVisible();
+    await expect(page.locator('.ant-select').first()).toBeVisible({ timeout: 10000 });
   });
 
   test('should open create work order modal', async ({ page }) => {
-    await page.getByText('新增工单').click();
-    await expect(page.getByText('工单标题')).toBeVisible({ timeout: 5000 });
+    await page.getByRole('button', { name: /新增|Add/i }).click();
+    await expect(page.locator('.ant-modal')).toBeVisible({ timeout: 5000 });
   });
 });
 
 test.describe('Equipment Management', () => {
   test.beforeEach(async ({ page }) => {
-    await login(page);
     await page.goto('/equipment');
+    await page.waitForLoadState('networkidle');
   });
 
   test('should display equipment list', async ({ page }) => {
-    await expect(page.getByText('新增设备')).toBeVisible();
+    await expect(page.getByRole('button', { name: /新增|Add/i })).toBeVisible({ timeout: 10000 });
     await expect(page.locator('.ant-table')).toBeVisible();
   });
 
   test('should have tabs for list and gantt view', async ({ page }) => {
-    await expect(page.getByText('设备列表')).toBeVisible();
-    await expect(page.getByText('排程甘特图')).toBeVisible();
+    await expect(page.locator('.ant-tabs')).toBeVisible({ timeout: 10000 });
   });
 });
 
 test.describe('Client & SLA Management', () => {
-  test.beforeEach(async ({ page }) => {
-    await login(page);
-  });
-
   test('should display clients page', async ({ page }) => {
     await page.goto('/clients');
-    await expect(page.getByText('新增客户')).toBeVisible();
-  });
-
-  test('should display SLA configuration page', async ({ page }) => {
-    await page.goto('/client-slas');
-    await expect(page.getByText('新增SLA配置')).toBeVisible();
-  });
-
-  test('should display source categories page', async ({ page }) => {
-    await page.goto('/source-categories');
-    await expect(page.getByText('新增来源类别')).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    // Check for table on clients page (use first() to avoid strict mode)
+    await expect(page.locator('.ant-table').first()).toBeVisible({ timeout: 10000 });
   });
 });

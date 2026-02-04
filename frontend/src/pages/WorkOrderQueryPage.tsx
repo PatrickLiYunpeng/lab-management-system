@@ -12,6 +12,7 @@ import { isAbortError } from '../services/api';
 import type { WorkOrder, Laboratory, Client, WorkOrderType, WorkOrderStatus, WorkOrderTask } from '../types';
 import { App, Button, Input, Select, Switch, Table, Tag, Modal, Tooltip, Progress, Card } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
+import type { SorterResult } from 'antd/es/table/interface';
 
 const workOrderTypeLabels: Record<WorkOrderType, string> = {
   failure_analysis: '失效分析',
@@ -64,7 +65,10 @@ export default function WorkOrderQueryPage() {
     client_id?: number;
     work_order_type?: WorkOrderType;
     status?: WorkOrderStatus;
+    priority_level?: number;
     overdue_only: boolean;
+    sort_by?: string;
+    sort_order?: 'asc' | 'desc';
   }>({
     search: '',
     overdue_only: false,
@@ -91,7 +95,10 @@ export default function WorkOrderQueryPage() {
         if (filters.client_id) params.client_id = filters.client_id;
         if (filters.work_order_type) params.work_order_type = filters.work_order_type;
         if (filters.status) params.status = filters.status;
+        if (filters.priority_level) params.priority_level = filters.priority_level;
         if (filters.overdue_only) params.overdue_only = filters.overdue_only;
+        if (filters.sort_by) params.sort_by = filters.sort_by;
+        if (filters.sort_order) params.sort_order = filters.sort_order;
 
         const response = await workOrderService.getWorkOrders(params);
         if (isMountedRef.current) {
@@ -182,7 +189,26 @@ export default function WorkOrderQueryPage() {
     return () => clearTimeout(timer);
   }, [searchValue, filters.search]);
 
-  const handleTableChange = (paginationConfig: TablePaginationConfig) => {
+  const handleTableChange = (
+    paginationConfig: TablePaginationConfig,
+    _filters: Record<string, unknown>,
+    sorter: SorterResult<WorkOrder> | SorterResult<WorkOrder>[]
+  ) => {
+    const singleSorter = Array.isArray(sorter) ? sorter[0] : sorter;
+    let sortBy: string | undefined;
+    let sortOrder: 'asc' | 'desc' | undefined;
+    
+    if (singleSorter?.field && singleSorter?.order) {
+      const field = singleSorter.field as string;
+      if (field === 'priority_score' || field === 'priority') {
+        sortBy = 'priority_score';
+      } else if (field === 'sla_deadline') {
+        sortBy = 'sla_deadline';
+      }
+      sortOrder = singleSorter.order === 'ascend' ? 'asc' : 'desc';
+    }
+    
+    setFilters((prev) => ({ ...prev, sort_by: sortBy, sort_order: sortOrder }));
     fetchWorkOrders(
       paginationConfig.current || 1,
       paginationConfig.pageSize || 10
@@ -295,7 +321,9 @@ export default function WorkOrderQueryPage() {
     {
       title: '优先级',
       key: 'priority',
+      dataIndex: 'priority_score',
       width: 100,
+      sorter: true,
       render: (_, record) => (
         <Progress
           percent={record.priority_score}
@@ -322,10 +350,11 @@ export default function WorkOrderQueryPage() {
       },
     },
     {
-      title: 'SLA截止',
+      title: '截止日',
       dataIndex: 'sla_deadline',
       key: 'sla_deadline',
       width: 110,
+      sorter: true,
       render: (date: string, record) => {
         if (!date) return '-';
         const formattedDate = new Date(date).toLocaleDateString('zh-CN');
@@ -471,6 +500,22 @@ export default function WorkOrderQueryPage() {
               style={{ width: '100%' }}
             />
           </div>
+          <div>
+            <Select
+              placeholder="优先级"
+              value={filters.priority_level}
+              onChange={(value) => setFilters((prev) => ({ ...prev, priority_level: value || undefined }))}
+              allowClear
+              style={{ width: '100%' }}
+              options={[
+                { value: 1, label: 'P1 - 最高' },
+                { value: 2, label: 'P2 - 高' },
+                { value: 3, label: 'P3 - 中' },
+                { value: 4, label: 'P4 - 低' },
+                { value: 5, label: 'P5 - 最低' },
+              ]}
+            />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 14, color: '#666' }}>仅显示逾期:</span>
             <Switch
@@ -545,7 +590,7 @@ export default function WorkOrderQueryPage() {
                 <div style={{ flex: 1, padding: '8px 12px', fontSize: 14 }}>P{selectedWorkOrder.priority_level} ({selectedWorkOrder.priority_score}分)</div>
               </div>
               <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0' }}>
-                <div style={{ width: 96, padding: '8px 12px', backgroundColor: '#fafafa', fontSize: 14, color: '#999', fontWeight: 500 }}>SLA截止</div>
+                <div style={{ width: 96, padding: '8px 12px', backgroundColor: '#fafafa', fontSize: 14, color: '#999', fontWeight: 500 }}>截止日</div>
                 <div style={{ flex: 1, padding: '8px 12px', fontSize: 14 }}>
                   {selectedWorkOrder.sla_deadline
                     ? new Date(selectedWorkOrder.sla_deadline).toLocaleString('zh-CN')

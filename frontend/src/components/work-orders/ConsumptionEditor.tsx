@@ -87,13 +87,14 @@ export function ConsumptionEditor({
     setLoadingMaterials(true);
     try {
       const res = await materialService.getMaterials({
-        page_size: 500,
+        page_size: 100,
       });
+      console.log('Materials API response:', res);
       // Filter out sample type materials (only show consumable, reagent, tool, other)
+      const filtered = res.items.filter((m) => m.material_type !== 'sample');
+      console.log('Filtered materials (non-sample):', filtered.length);
       setMaterials(
-        res.items
-          .filter((m) => m.material_type !== 'sample')
-          .map((m) => ({
+        filtered.map((m) => ({
             id: m.id,
             material_code: m.material_code,
             name: m.name,
@@ -103,10 +104,11 @@ export function ConsumptionEditor({
       );
     } catch (error) {
       console.error('Failed to load materials:', error);
+      message.error('加载材料列表失败');
     } finally {
       setLoadingMaterials(false);
     }
-  }, []);
+  }, [message]);
 
   useEffect(() => {
     loadConsumptions();
@@ -343,6 +345,10 @@ export function ConsumptionEditor({
           </Button>
         ) : (
           <>
+            {/* Debug info */}
+            <div style={{ marginBottom: 8, fontSize: 12, color: '#999' }}>
+              材料加载状态: {loadingMaterials ? '加载中...' : `已加载 ${materials.length} 种材料`}
+            </div>
             {newRows.map((row) => {
               const selectedMaterial = materials.find((m) => m.id === row.material_id);
               return (

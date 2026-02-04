@@ -12,13 +12,6 @@ import { laboratoryService } from '../../services/laboratoryService';
 import type { EquipmentGanttItem, EquipmentSchedule } from '../../services/equipmentService';
 import type { Laboratory, EquipmentCategory } from '../../types';
 
-const statusColors: Record<string, string> = {
-  scheduled: '#3b82f6',
-  in_progress: '#22c55e',
-  completed: '#6b7280',
-  cancelled: '#ef4444',
-};
-
 const statusLabels: Record<string, string> = {
   scheduled: '已排程',
   in_progress: '进行中',

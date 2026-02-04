@@ -208,7 +208,7 @@ export default function ClientsPage() {
   ];
 
   return (
-    <div>
+    <div data-testid="clients-page">
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
         <Space wrap>
           <Input
@@ -218,13 +218,14 @@ export default function ClientsPage() {
             onChange={(e) => setSearchValue(e.target.value)}
             style={{ width: 220 }}
             allowClear
+            data-testid="clients-search-input"
           />
           <Space>
             <span style={{ fontSize: 14, color: '#666' }}>仅启用:</span>
             <Switch checked={showActiveOnly === true} onChange={handleActiveFilterChange} size="small" />
           </Space>
         </Space>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} data-testid="clients-add-button">
           新增客户
         </Button>
       </div>
@@ -242,6 +243,7 @@ export default function ClientsPage() {
         }}
         onChange={handleTableChange}
         scroll={{ x: 1100 }}
+        data-testid="clients-table"
       />
 
       <ClientModal

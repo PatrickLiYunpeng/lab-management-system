@@ -7,6 +7,7 @@ import {
   ReloadOutlined,
   CalendarOutlined,
   InboxOutlined,
+  StarOutlined,
 } from '@ant-design/icons';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -14,7 +15,7 @@ import {
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
-import { Card, Button, Select, Spin, Progress, Alert, Tooltip, DatePicker, Space, Row, Col, Segmented, Typography, Tabs, Empty } from 'antd';
+import { Card, Button, Select, Spin, Progress, Alert, Tooltip, DatePicker, Space, Row, Col, Segmented, Typography, Tabs, Empty, Table } from 'antd';
 import { dashboardService } from '../services/dashboardService';
 import { siteService } from '../services/siteService';
 import { laboratoryService } from '../services/laboratoryService';
@@ -31,6 +32,7 @@ const translations = {
     title: '设备仪表板',
     overview: '概览',
     scheduling: '调度甘特图',
+    criticalScheduling: '关键设备调度',
     totalEquipment: '设备总数',
     availableEquipment: '可用设备',
     inUseEquipment: '使用中',
@@ -53,9 +55,12 @@ const translations = {
     equipmentCount: '设备数量',
     utilizationRate: '利用率',
     ganttChart: '设备调度甘特图',
+    criticalGanttChart: '关键设备调度甘特图',
     dateRange: '日期范围',
     noSchedules: '该类别暂无调度数据',
     noEquipment: '该类别暂无设备',
+    noCriticalEquipment: '暂无关键设备',
+    noCriticalSchedules: '关键设备暂无调度数据',
     thermal: '热学设备',
     mechanical: '机械设备',
     electrical: '电学设备',
@@ -69,11 +74,20 @@ const translations = {
     maxRangeWarning: '日期范围最大7天',
     categoryDetails: '各类别详情',
     units: '台',
+    upcomingReservations: '即将进行的预约',
+    equipmentName: '设备名称',
+    equipmentCode: '设备编号',
+    taskTitle: '任务标题',
+    startTime: '开始时间',
+    endTime: '结束时间',
+    priority: '优先级',
+    noUpcomingReservations: '暂无即将进行的预约',
   },
   en: {
     title: 'Equipment Dashboard',
     overview: 'Overview',
     scheduling: 'Scheduling Gantt',
+    criticalScheduling: 'Critical Equipment',
     totalEquipment: 'Total Equipment',
     availableEquipment: 'Available',
     inUseEquipment: 'In Use',
@@ -96,9 +110,12 @@ const translations = {
     equipmentCount: 'Equipment Count',
     utilizationRate: 'Utilization Rate',
     ganttChart: 'Equipment Scheduling Gantt Chart',
+    criticalGanttChart: 'Critical Equipment Scheduling',
     dateRange: 'Date Range',
     noSchedules: 'No schedules for this category',
     noEquipment: 'No equipment in this category',
+    noCriticalEquipment: 'No critical equipment',
+    noCriticalSchedules: 'No schedules for critical equipment',
     thermal: 'Thermal',
     mechanical: 'Mechanical',
     electrical: 'Electrical',
@@ -112,6 +129,14 @@ const translations = {
     maxRangeWarning: 'Maximum range is 7 days',
     categoryDetails: 'Category Details',
     units: 'units',
+    upcomingReservations: 'Upcoming Reservations',
+    equipmentName: 'Equipment Name',
+    equipmentCode: 'Equipment Code',
+    taskTitle: 'Task Title',
+    startTime: 'Start Time',
+    endTime: 'End Time',
+    priority: 'Priority',
+    noUpcomingReservations: 'No upcoming reservations',
   },
 };
 
@@ -134,13 +159,6 @@ const EQUIPMENT_CATEGORIES = [
 ] as const;
 
 type EquipmentCategoryKey = typeof EQUIPMENT_CATEGORIES[number];
-
-const SCHEDULE_STATUS_COLORS: Record<string, string> = {
-  scheduled: '#1677ff',
-  in_progress: '#52c41a',
-  completed: '#8c8c8c',
-  cancelled: '#ff4d4f',
-};
 
 // 优先级颜色定义（按priority_level: 1=最高优先级，5=最低优先级）
 const PRIORITY_COLORS: Record<number, string> = {
@@ -323,7 +341,7 @@ function GanttChartContent({ equipment, startDate, endDate, loading, language, t
 export function EquipmentDashboard() {
   const navigate = useNavigate();
   const [language, setLanguage] = useState<Language>('zh');
-  const [activeTab, setActiveTab] = useState<'overview' | 'scheduling'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'scheduling' | 'critical'>('overview');
   const [siteId, setSiteId] = useState<number | undefined>();
   const [laboratoryId, setLaboratoryId] = useState<number | undefined>();
   const [sites, setSites] = useState<Site[]>([]);
@@ -339,8 +357,15 @@ export function EquipmentDashboard() {
   const [ganttStartDate, setGanttStartDate] = useState<Dayjs>(dayjs().subtract(1, 'day'));
   const [ganttEndDate, setGanttEndDate] = useState<Dayjs>(dayjs().add(2, 'day'));
 
+  // 关键设备调度相关状态
+  const [criticalGanttData, setCriticalGanttData] = useState<GanttDataResponse | null>(null);
+  const [criticalGanttLoading, setCriticalGanttLoading] = useState(false);
+  const [criticalStartDate, setCriticalStartDate] = useState<Dayjs>(dayjs().subtract(1, 'day'));
+  const [criticalEndDate, setCriticalEndDate] = useState<Dayjs>(dayjs().add(5, 'day'));
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const ganttAbortControllerRef = useRef<AbortController | null>(null);
+  const criticalGanttAbortControllerRef = useRef<AbortController | null>(null);
 
   const t = translations[language];
 
@@ -443,6 +468,45 @@ export function EquipmentDashboard() {
       controller.abort();
     };
   }, [fetchGanttData]);
+
+  // 获取关键设备甘特图数据
+  const fetchCriticalGanttData = useCallback(async (signal?: AbortSignal) => {
+    setCriticalGanttLoading(true);
+    try {
+      const params: Record<string, string | number | boolean | AbortSignal | undefined> = {
+        start_date: criticalStartDate.format('YYYY-MM-DD'),
+        end_date: criticalEndDate.format('YYYY-MM-DD'),
+        is_critical: true,
+        signal,
+      };
+      if (siteId) params.site_id = siteId;
+      if (laboratoryId) params.laboratory_id = laboratoryId;
+      
+      const response = await dashboardService.getGanttData(params);
+      setCriticalGanttData(response);
+    } catch (err) {
+      if (!isAbortError(err)) {
+        console.error('Failed to load critical equipment Gantt data');
+      }
+    } finally {
+      setCriticalGanttLoading(false);
+    }
+  }, [criticalStartDate, criticalEndDate, siteId, laboratoryId]);
+
+  useEffect(() => {
+    if (criticalGanttAbortControllerRef.current) {
+      criticalGanttAbortControllerRef.current.abort();
+    }
+    
+    const controller = new AbortController();
+    criticalGanttAbortControllerRef.current = controller;
+    
+    fetchCriticalGanttData(controller.signal);
+    
+    return () => {
+      controller.abort();
+    };
+  }, [fetchCriticalGanttData]);
 
   const getEquipmentByCategory = (category: EquipmentCategoryKey): GanttEquipment[] => {
     if (!ganttData) return [];
@@ -691,6 +755,181 @@ export function EquipmentDashboard() {
     </Card>
   );
 
+  // 获取从当前时间开始的预约列表
+  const getUpcomingReservations = useCallback(() => {
+    if (!criticalGanttData) return [];
+    const now = dayjs();
+    const reservations: Array<{
+      key: string;
+      equipmentName: string;
+      equipmentCode: string;
+      title: string;
+      startTime: string;
+      endTime: string;
+      priorityLevel: number;
+      operatorName: string | null;
+      workOrderId: number | null;
+    }> = [];
+
+    for (const eq of criticalGanttData.equipment) {
+      for (const schedule of eq.schedules) {
+        const scheduleEnd = dayjs(schedule.end_time);
+        // 只包含尚未结束的预约
+        if (scheduleEnd.isAfter(now)) {
+          reservations.push({
+            key: `${eq.id}-${schedule.id}`,
+            equipmentName: eq.name,
+            equipmentCode: eq.code,
+            title: schedule.title,
+            startTime: schedule.start_time,
+            endTime: schedule.end_time,
+            priorityLevel: schedule.priority_level || 3,
+            operatorName: schedule.operator_name,
+            workOrderId: schedule.work_order_id,
+          });
+        }
+      }
+    }
+
+    // 按开始时间排序
+    return reservations.sort((a, b) => 
+      dayjs(a.startTime).valueOf() - dayjs(b.startTime).valueOf()
+    );
+  }, [criticalGanttData]);
+
+  // 预约列表列定义
+  const reservationColumns = [
+    {
+      title: t.equipmentName,
+      dataIndex: 'equipmentName',
+      key: 'equipmentName',
+      width: 150,
+    },
+    {
+      title: t.equipmentCode,
+      dataIndex: 'equipmentCode',
+      key: 'equipmentCode',
+      width: 120,
+    },
+    {
+      title: t.taskTitle,
+      dataIndex: 'title',
+      key: 'title',
+      ellipsis: true,
+    },
+    {
+      title: t.startTime,
+      dataIndex: 'startTime',
+      key: 'startTime',
+      width: 140,
+      render: (time: string) => dayjs(time).format('MM-DD HH:mm'),
+    },
+    {
+      title: t.endTime,
+      dataIndex: 'endTime',
+      key: 'endTime',
+      width: 140,
+      render: (time: string) => dayjs(time).format('MM-DD HH:mm'),
+    },
+    {
+      title: t.priority,
+      dataIndex: 'priorityLevel',
+      key: 'priorityLevel',
+      width: 80,
+      render: (level: number) => (
+        <span style={{ 
+          display: 'inline-block',
+          padding: '2px 8px',
+          borderRadius: 4,
+          backgroundColor: PRIORITY_COLORS[level] || PRIORITY_COLORS[3],
+          color: '#fff',
+          fontSize: 12,
+        }}>
+          {PRIORITY_LABELS[level]?.[language] || PRIORITY_LABELS[3][language]}
+        </span>
+      ),
+    },
+    {
+      title: t.operator,
+      dataIndex: 'operatorName',
+      key: 'operatorName',
+      width: 100,
+      render: (name: string | null) => name || '-',
+    },
+  ];
+
+  // 关键设备调度内容
+  const criticalSchedulingContent = (
+    <div>
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
+          <Space>
+            <StarOutlined style={{ fontSize: 16, color: '#faad14' }} />
+            <Text strong>{t.criticalGanttChart}</Text>
+          </Space>
+          <Space wrap>
+            <Text type="secondary" style={{ fontSize: 14 }}>{t.dateRange}:</Text>
+            <DatePicker
+              value={criticalStartDate}
+              onChange={(date) => date && setCriticalStartDate(date)}
+              size="small"
+            />
+            <span style={{ color: '#d9d9d9' }}>-</span>
+            <DatePicker
+              value={criticalEndDate}
+              onChange={(date) => date && setCriticalEndDate(date)}
+              size="small"
+            />
+            <Tooltip title={t.maxRangeWarning}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                (max 7 {language === 'zh' ? '天' : 'days'})
+              </Text>
+            </Tooltip>
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={() => fetchCriticalGanttData()}
+              loading={criticalGanttLoading}
+            />
+          </Space>
+        </div>
+
+        <GanttChartContent
+          equipment={criticalGanttData?.equipment || []}
+          startDate={criticalStartDate}
+          endDate={criticalEndDate}
+          loading={criticalGanttLoading}
+          language={language}
+          t={{
+            ...t,
+            noEquipment: t.noCriticalEquipment,
+            noSchedules: t.noCriticalSchedules,
+          }}
+          onScheduleClick={handleScheduleClick}
+        />
+      </Card>
+
+      {/* 预约列表 */}
+      <Card size="small" title={t.upcomingReservations}>
+        <Table
+          columns={reservationColumns}
+          dataSource={getUpcomingReservations()}
+          size="small"
+          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} ${language === 'zh' ? '条记录' : 'records'}` }}
+          locale={{ emptyText: t.noUpcomingReservations }}
+          onRow={(record) => ({
+            style: { cursor: record.workOrderId ? 'pointer' : 'default' },
+            onClick: () => {
+              if (record.workOrderId) {
+                navigate(`/work-orders?expand=${record.workOrderId}`);
+              }
+            },
+          })}
+        />
+      </Card>
+    </div>
+  );
+
   if (error) {
     return <Alert message={error} type="error" style={{ margin: 24 }} />;
   }
@@ -745,9 +984,11 @@ export function EquipmentDashboard() {
                   fetchData();
                   if (activeTab === 'scheduling') {
                     fetchGanttData();
+                  } else if (activeTab === 'critical') {
+                    fetchCriticalGanttData();
                   }
                 }}
-                loading={loading || ganttLoading}
+                loading={loading || ganttLoading || criticalGanttLoading}
               />
             </Tooltip>
           </Space>
@@ -762,7 +1003,7 @@ export function EquipmentDashboard() {
       ) : (
         <Tabs
           activeKey={activeTab}
-          onChange={(key) => setActiveTab(key as 'overview' | 'scheduling')}
+          onChange={(key) => setActiveTab(key as 'overview' | 'scheduling' | 'critical')}
           items={[
             {
               key: 'overview',
@@ -783,6 +1024,16 @@ export function EquipmentDashboard() {
                 </span>
               ),
               children: schedulingContent,
+            },
+            {
+              key: 'critical',
+              label: (
+                <span>
+                  <StarOutlined style={{ marginRight: 8, color: '#faad14' }} />
+                  {t.criticalScheduling}
+                </span>
+              ),
+              children: criticalSchedulingContent,
             },
           ]}
         />

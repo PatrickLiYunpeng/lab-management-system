@@ -110,6 +110,7 @@ export interface DashboardParams {
 export interface DateRangeParams extends DashboardParams {
   start_date?: string;
   end_date?: string;
+  is_critical?: boolean;
 }
 
 // Gantt chart data types

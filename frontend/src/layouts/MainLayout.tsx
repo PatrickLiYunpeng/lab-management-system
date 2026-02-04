@@ -21,7 +21,7 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../stores/authStore';
-import { canAccessRoute } from '../utils/permissions';
+import { canAccessRoute, canAccessRouteByModule } from '../utils/permissions';
 import type { UserRole } from '../types';
 
 const { Header, Sider, Content } = Layout;
@@ -69,20 +69,28 @@ const allMenuItems: MenuItemConfig[] = [
   { key: '/settings', icon: <SettingOutlined />, label: '系统设置', route: '/settings' },
 ];
 
-// Filter menu items based on user role permissions
+// Filter menu items based on user role permissions and module permissions
 function filterMenuByRole(items: MenuItemConfig[], role: UserRole | undefined): MenuItemConfig[] {
   if (!role) return [];
   
   return items
     .map(item => {
-      if (item.route && !canAccessRoute(role, item.route)) {
-        return null;
+      if (item.route) {
+        // 同时检查操作权限和模块权限
+        const hasOperationPermission = canAccessRoute(role, item.route);
+        const hasModulePermission = canAccessRouteByModule(item.route);
+        if (!hasOperationPermission || !hasModulePermission) {
+          return null;
+        }
       }
       
       if (item.children) {
-        const filteredChildren = item.children.filter(
-          child => !child.route || canAccessRoute(role, child.route)
-        );
+        const filteredChildren = item.children.filter(child => {
+          if (!child.route) return true;
+          const hasOperationPermission = canAccessRoute(role, child.route);
+          const hasModulePermission = canAccessRouteByModule(child.route);
+          return hasOperationPermission && hasModulePermission;
+        });
         if (filteredChildren.length === 0) return null;
         return { ...item, children: filteredChildren };
       }
@@ -115,12 +123,12 @@ export function MainLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuthStore();
+  const { user, logout, accessibleModules, modulesLoaded } = useAuthStore();
   const { token } = theme.useToken();
 
   const menuItems = useMemo(
     () => filterMenuByRole(allMenuItems, user?.role),
-    [user?.role]
+    [user?.role, accessibleModules, modulesLoaded]
   );
 
   const antdMenuItems = useMemo(

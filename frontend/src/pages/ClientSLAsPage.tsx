@@ -278,7 +278,7 @@ export default function ClientSLAsPage() {
   ];
 
   return (
-    <div>
+    <div data-testid="client-slas-page">
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <Select
@@ -288,6 +288,7 @@ export default function ClientSLAsPage() {
             style={{ width: 180 }}
             allowClear
             options={clients.map(c => ({ label: c.name, value: c.id }))}
+            data-testid="slas-client-filter"
           />
           <Select
             placeholder="实验室"
@@ -296,6 +297,7 @@ export default function ClientSLAsPage() {
             style={{ width: 180 }}
             allowClear
             options={laboratories.map(l => ({ label: l.name, value: l.id }))}
+            data-testid="slas-lab-filter"
           />
           <Select
             placeholder="状态"
@@ -307,9 +309,10 @@ export default function ClientSLAsPage() {
               { label: '启用', value: 'true' },
               { label: '停用', value: 'false' },
             ]}
+            data-testid="slas-status-filter"
           />
         </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>新增SLA配置</Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} data-testid="slas-add-button">新增SLA配置</Button>
       </div>
 
       <Table
@@ -325,6 +328,7 @@ export default function ClientSLAsPage() {
         }}
         onChange={handleTableChange}
         scroll={{ x: 1100 }}
+        data-testid="slas-table"
       />
 
       <Modal

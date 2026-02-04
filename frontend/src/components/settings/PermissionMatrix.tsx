@@ -50,7 +50,8 @@ const PERMISSION_CATEGORIES: Record<string, { label: string; permissions: string
     label: '工单管理',
     permissions: [
       'create_work_order', 'assign_lead_engineer', 'create_subtask',
-      'assign_technician', 'execute_subtask', 'verify_results', 'initiate_handover',
+      'assign_technician', 'execute_subtask', 'verify_results', 
+      'view_work_order_query', 'initiate_handover',
     ],
   },
   materials: {

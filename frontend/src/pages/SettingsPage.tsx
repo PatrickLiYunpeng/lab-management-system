@@ -9,6 +9,7 @@ import {
   LockOutlined,
   CheckOutlined,
   CloseOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 import { App, Button, Select, Switch, Tag, Card, Tabs } from 'antd';
 import { useAuthStore } from '../stores/authStore';
@@ -19,6 +20,7 @@ import {
   Permission,
 } from '../utils/permissions';
 import { PermissionMatrixComponent } from '../components/settings/PermissionMatrix';
+import { ModulePermissionMatrix } from '../components/settings/ModulePermissionMatrix';
 import { UserRole } from '../types';
 
 // Role labels in Chinese
@@ -39,7 +41,7 @@ const roleColors: Record<string, 'error' | 'warning' | 'blue' | 'success' | 'def
   viewer: 'default',
 };
 
-type TabKey = 'general' | 'my-permissions' | 'permission-management';
+type TabKey = 'general' | 'my-permissions' | 'permission-management' | 'module-permission-management';
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
@@ -330,11 +332,21 @@ export default function SettingsPage() {
       label: (
         <span>
           <SafetyCertificateOutlined />
-          权限管理
+          操作权限管理
           <Tag color="error" style={{ marginLeft: 4, fontSize: 11 }}>管理员</Tag>
         </span>
       ),
       children: <PermissionMatrixComponent />,
+    }, {
+      key: 'module-permission-management',
+      label: (
+        <span>
+          <AppstoreOutlined />
+          模块权限管理
+          <Tag color="error" style={{ marginLeft: 4, fontSize: 11 }}>管理员</Tag>
+        </span>
+      ),
+      children: <ModulePermissionMatrix />,
     }] : []),
   ];
 

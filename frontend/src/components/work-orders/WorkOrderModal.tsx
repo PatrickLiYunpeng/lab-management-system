@@ -110,6 +110,7 @@ export function WorkOrderModal({
       })
       .catch(() => {
         setSourceCategories([]);
+        message.error('加载来源类别失败');
       })
       .finally(() => {
         setSourceCategoriesLoading(false);
@@ -138,6 +139,7 @@ export function WorkOrderModal({
           })
           .catch(() => {
             setMatchedSla(null);
+            message.error('查询SLA配置失败');
           })
           .finally(() => {
             setSlaLoading(false);
@@ -160,6 +162,7 @@ export function WorkOrderModal({
         })
         .catch(() => {
           setProducts([]);
+          message.error('加载产品列表失败');
         })
         .finally(() => {
           setProductsLoading(false);
@@ -175,7 +178,7 @@ export function WorkOrderModal({
     if (visible && selectedSiteId && selectedClientId && selectedProductId) {
       setMaterialsLoading(true);
       workOrderService.getAvailableMaterials({ 
-        page_size: 500, 
+        page_size: 100, 
         site_id: selectedSiteId,
         client_id: selectedClientId,
         product_id: selectedProductId
@@ -185,6 +188,7 @@ export function WorkOrderModal({
         })
         .catch(() => {
           setAvailableMaterials([]);
+          message.error('加载可用样品失败');
         })
         .finally(() => {
           setMaterialsLoading(false);
@@ -510,9 +514,9 @@ export function WorkOrderModal({
         
         <Row gutter={16}>
           <Col span={8}>
-            <Form.Item name="sla_deadline" label="SLA截止时间">
+            <Form.Item name="sla_deadline" label="截止日">
               <DatePicker 
-                placeholder="SLA截止时间"
+                placeholder="截止日"
                 style={{ width: '100%' }}
               />
             </Form.Item>

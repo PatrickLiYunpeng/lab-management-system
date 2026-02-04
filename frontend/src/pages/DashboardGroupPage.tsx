@@ -4,12 +4,10 @@ import {
   DashboardOutlined,
   DesktopOutlined,
   TeamOutlined,
-  SearchOutlined,
 } from '@ant-design/icons';
 import { DashboardPage } from './DashboardPage';
 import { EquipmentDashboard } from './EquipmentDashboard';
 import { PersonnelDashboard } from './PersonnelDashboard';
-import WorkOrderQueryPage from './WorkOrderQueryPage';
 
 export default function DashboardGroupPage() {
   const [activeKey, setActiveKey] = useState('dashboard');
@@ -44,16 +42,6 @@ export default function DashboardGroupPage() {
         </span>
       ),
       children: <PersonnelDashboard />,
-    },
-    {
-      key: 'query',
-      label: (
-        <span>
-          <SearchOutlined />
-          工单查询
-        </span>
-      ),
-      children: <WorkOrderQueryPage />,
     },
   ];
 

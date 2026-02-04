@@ -177,7 +177,7 @@ export default function SitesPage() {
   ];
 
   return (
-    <div>
+    <div data-testid="sites-page">
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
         <Input
           placeholder="搜索站点名称或代码"
@@ -186,8 +186,9 @@ export default function SitesPage() {
           onChange={(e) => setSearchValue(e.target.value)}
           style={{ width: 300 }}
           allowClear
+          data-testid="sites-search-input"
         />
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} data-testid="sites-add-button">
           新增站点
         </Button>
       </div>
@@ -204,6 +205,7 @@ export default function SitesPage() {
           showTotal: (total) => `共 ${total} 条`,
         }}
         onChange={handleTableChange}
+        data-testid="sites-table"
       />
 
       <SiteModal

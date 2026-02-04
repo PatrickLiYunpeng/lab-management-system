@@ -338,6 +338,7 @@ export default function EquipmentPage() {
                 onChange={(e) => setSearchValue(e.target.value)}
                 style={{ width: 220 }}
                 allowClear
+                data-testid="equipment-search-input"
               />
               <Select
                 placeholder="站点"
@@ -395,7 +396,7 @@ export default function EquipmentPage() {
                 }))}
               />
             </Space>
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} data-testid="equipment-add-button">
               新增设备
             </Button>
           </div>
@@ -413,6 +414,7 @@ export default function EquipmentPage() {
             }}
             onChange={handleTableChange}
             scroll={{ x: 1300 }}
+            data-testid="equipment-table"
           />
 
           <EquipmentModal
@@ -449,11 +451,12 @@ export default function EquipmentPage() {
   ];
 
   return (
-    <div>
+    <div data-testid="equipment-page">
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
         items={tabItems}
+        data-testid="equipment-tabs"
       />
     </div>
   );
