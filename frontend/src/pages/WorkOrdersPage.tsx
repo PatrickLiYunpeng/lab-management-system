@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, DownloadOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
 import { Table, Button, Input, Select, Tag, Switch, Progress, Popconfirm, App, Space } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
@@ -29,6 +30,7 @@ const statusLabels: Record<WorkOrderStatus, { text: string; color: 'default' | '
 };
 
 export default function WorkOrdersPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
@@ -48,6 +50,7 @@ export default function WorkOrdersPage() {
     work_order_type?: WorkOrderType;
     status?: WorkOrderStatus;
     overdue_only?: boolean;
+    work_order_id?: number;
   }>({
     search: '',
     overdue_only: false,
@@ -57,6 +60,25 @@ export default function WorkOrdersPage() {
   
   const { message } = App.useApp();
   const abortControllerRef = useRef<AbortController | null>(null);
+  const expandHandledRef = useRef(false);
+  
+  // 在组件挂载时检查 expand 参数
+  useEffect(() => {
+    const expandId = searchParams.get('expand');
+    if (expandId && !expandHandledRef.current) {
+      const workOrderId = parseInt(expandId, 10);
+      if (!isNaN(workOrderId)) {
+        expandHandledRef.current = true;
+        // 设置 work_order_id 过滤器，确保该工单出现在列表中
+        setFilters((prev) => ({ ...prev, work_order_id: workOrderId }));
+        // 预设展开键
+        setExpandedRowKeys([workOrderId]);
+        // 清除 URL 参数
+        searchParams.delete('expand');
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [searchParams, setSearchParams]);
 
   const fetchWorkOrders = useCallback(
     async (page = 1, pageSize = 10, signal?: AbortSignal) => {
@@ -66,6 +88,7 @@ export default function WorkOrdersPage() {
           page,
           page_size: pageSize,
           search: filters.search || undefined,
+          work_order_id: filters.work_order_id,
           laboratory_id: filters.laboratory_id,
           client_id: filters.client_id,
           work_order_type: filters.work_order_type,
@@ -154,6 +177,10 @@ export default function WorkOrdersPage() {
   }, [searchValue, filters.search]);
 
   const handleTableChange = (paginationConfig: TablePaginationConfig) => {
+    // 翻页时清除 work_order_id 过滤，恢复正常列表
+    if (filters.work_order_id) {
+      setFilters((prev) => ({ ...prev, work_order_id: undefined }));
+    }
     fetchWorkOrders(paginationConfig.current, paginationConfig.pageSize);
   };
 

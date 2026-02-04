@@ -34,9 +34,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
 from app.core.database import get_db
-from app.models.equipment import Equipment, EquipmentType, EquipmentStatus, EquipmentSchedule
+from app.models.equipment import Equipment, EquipmentType, EquipmentStatus, EquipmentSchedule, EquipmentCategory
 from app.models.laboratory import Laboratory
 from app.models.site import Site
+from app.models.work_order import WorkOrder
 from app.schemas.equipment import (
     EquipmentCreate, EquipmentUpdate, EquipmentResponse, EquipmentListResponse,
     EquipmentScheduleCreate, EquipmentScheduleResponse
@@ -293,6 +294,7 @@ def get_gantt_data(
     laboratory_id: Optional[int] = None,
     site_id: Optional[int] = None,
     equipment_type: Optional[EquipmentType] = None,
+    category: Optional[EquipmentCategory] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -308,6 +310,8 @@ def get_gantt_data(
         eq_query = eq_query.filter(Equipment.site_id == site_id)
     if equipment_type:
         eq_query = eq_query.filter(Equipment.equipment_type == equipment_type)
+    if category:
+        eq_query = eq_query.filter(Equipment.category == category)
     
     equipment_list = eq_query.order_by(Equipment.name).all()
     equipment_ids = [e.id for e in equipment_list]
@@ -321,6 +325,15 @@ def get_gantt_data(
         EquipmentSchedule.end_time >= start_date,
         EquipmentSchedule.start_time <= end_date
     ).order_by(EquipmentSchedule.start_time).all()
+    
+    # Build work_order_id to priority_level mapping
+    work_order_ids = [s.work_order_id for s in schedules if s.work_order_id]
+    priority_map = {}
+    if work_order_ids:
+        work_orders = db.query(WorkOrder.id, WorkOrder.priority_level).filter(
+            WorkOrder.id.in_(work_order_ids)
+        ).all()
+        priority_map = {wo.id: wo.priority_level for wo in work_orders}
     
     # Format response for Gantt chart
     equipment_data = []
@@ -344,6 +357,7 @@ def get_gantt_data(
                     "work_order_id": s.work_order_id,
                     "task_id": s.task_id,
                     "operator_name": s.operator.user.full_name if s.operator and s.operator.user else None,
+                    "priority_level": priority_map.get(s.work_order_id, 3) if s.work_order_id else 3,
                 }
                 for s in eq_schedules
             ]

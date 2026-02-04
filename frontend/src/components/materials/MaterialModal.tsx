@@ -12,6 +12,7 @@ interface MaterialModalProps {
   sites: Site[];
   laboratories: Laboratory[];
   clients: Client[];
+  defaultMaterialType?: 'sample' | 'consumable' | 'reagent' | 'tool' | 'other';
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -68,12 +69,14 @@ export function MaterialModal({
   sites,
   laboratories,
   clients,
+  defaultMaterialType = 'sample',
   onSuccess,
   onCancel,
 }: MaterialModalProps) {
   const [form] = Form.useForm<MaterialFormValues>();
   const [loading, setLoading] = useState(false);
   const [selectedSiteId, setSelectedSiteId] = useState<number | undefined>();
+  const [currentMaterialType, setCurrentMaterialType] = useState<string>(defaultMaterialType);
   const { message } = App.useApp();
 
   const filteredLaboratories = selectedSiteId
@@ -84,6 +87,7 @@ export function MaterialModal({
     if (visible) {
       if (material) {
         setSelectedSiteId(material.site_id);
+        setCurrentMaterialType(material.material_type);
         form.setFieldsValue({
           ...material,
           storage_deadline: material.storage_deadline ? dayjs(material.storage_deadline) : undefined,
@@ -91,11 +95,12 @@ export function MaterialModal({
         } as MaterialFormValues);
       } else {
         form.resetFields();
-        form.setFieldsValue({ quantity: 1, unit: 'piece', material_type: 'sample' });
+        form.setFieldsValue({ quantity: 1, unit: 'piece', material_type: defaultMaterialType });
         setSelectedSiteId(undefined);
+        setCurrentMaterialType(defaultMaterialType);
       }
     }
-  }, [visible, material, form]);
+  }, [visible, material, form, defaultMaterialType]);
 
   const handleSiteChange = (value: number) => {
     setSelectedSiteId(value);
@@ -164,7 +169,12 @@ export function MaterialModal({
           </Col>
           <Col span={8}>
             <Form.Item name="material_type" label="物料类型" rules={[{ required: true, message: '请选择物料类型' }]}>
-              <Select placeholder="请选择物料类型" options={materialTypeOptions} disabled={!!material} />
+              <Select 
+                placeholder="请选择物料类型" 
+                options={materialTypeOptions} 
+                disabled={!!material}
+                onChange={(value) => setCurrentMaterialType(value)}
+              />
             </Form.Item>
           </Col>
         </Row>
@@ -226,30 +236,34 @@ export function MaterialModal({
           </Col>
         </Row>
 
-        <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16, marginTop: 24 }}>
-          <span style={{ fontSize: 14, color: '#999' }}>客户信息</span>
-        </div>
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item name="client_id" label="客户">
-              <Select
-                placeholder="请选择客户"
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                options={clients.map((client) => ({
-                  label: `${client.name} (${client.code})`,
-                  value: client.id,
-                }))}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item name="client_reference" label="客户参考号">
-              <Input placeholder="客户的参考编号" />
-            </Form.Item>
-          </Col>
-        </Row>
+        {currentMaterialType === 'sample' && (
+          <>
+            <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16, marginTop: 24 }}>
+              <span style={{ fontSize: 14, color: '#999' }}>客户信息</span>
+            </div>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="client_id" label="客户">
+                  <Select
+                    placeholder="请选择客户"
+                    allowClear
+                    showSearch
+                    optionFilterProp="label"
+                    options={clients.map((client) => ({
+                      label: `${client.name} (${client.code})`,
+                      value: client.id,
+                    }))}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="client_reference" label="客户参考号">
+                  <Input placeholder="客户的参考编号" />
+                </Form.Item>
+              </Col>
+            </Row>
+          </>
+        )}
 
         <div style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: 8, marginBottom: 16, marginTop: 24 }}>
           <span style={{ fontSize: 14, color: '#999' }}>时间要求</span>

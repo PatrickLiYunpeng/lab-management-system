@@ -146,7 +146,11 @@ class Equipment(Base):
     name = Column(String(100), nullable=False, index=True)                       # 设备名称
     code = Column(String(50), unique=True, nullable=False, index=True)           # 设备代码
     equipment_type = Column(SQLEnum(EquipmentType), nullable=False, index=True)  # 运行类型
-    category = Column(SQLEnum(EquipmentCategory), nullable=True, index=True)     # 设备分类
+    category = Column(SQLEnum(EquipmentCategory), nullable=True, index=True)     # 设备分类（旧枚举，兼容保留）
+    
+    # 新增：关联到设备类别表和设备名表
+    category_id = Column(Integer, ForeignKey("equipment_categories.id"), nullable=True, index=True)  # 设备类别ID
+    equipment_name_id = Column(Integer, ForeignKey("equipment_names.id"), nullable=True, index=True)  # 设备名ID
     
     # 位置信息
     laboratory_id = Column(Integer, ForeignKey("laboratories.id"), nullable=False)  # 所属实验室
@@ -192,6 +196,8 @@ class Equipment(Base):
     site = relationship("Site", backref="equipment")                                                       # 所属站点
     schedules = relationship("EquipmentSchedule", back_populates="equipment", cascade="all, delete-orphan")  # 调度记录
     required_skills = relationship("EquipmentSkillRequirement", back_populates="equipment", cascade="all, delete-orphan")  # 所需技能
+    equipment_category = relationship("EquipmentCategoryModel", backref="equipment")  # 设备类别
+    equipment_name = relationship("EquipmentNameModel", backref="equipment")           # 设备名
 
     def __repr__(self):
         """返回设备对象的字符串表示"""

@@ -6,7 +6,7 @@ import {
   SearchOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { Table, Button, Input, Select, Tag, Popconfirm, Tooltip, App, Card, Space } from 'antd';
+import { Table, Button, Input, Select, Tag, Popconfirm, Tooltip, App, Card, Space, Tabs } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { methodService } from '../services/methodService';
 import { laboratoryService } from '../services/laboratoryService';
@@ -49,6 +49,7 @@ export default function MethodsPage() {
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingMethod, setEditingMethod] = useState<Method | null>(null);
+  const [activeTab, setActiveTab] = useState<'analysis' | 'reliability'>('analysis');
   
   const { message } = App.useApp();
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -74,7 +75,7 @@ export default function MethodsPage() {
         page,
         page_size: pageSize,
         search: filters.search || undefined,
-        method_type: filters.method_type || undefined,
+        method_type: activeTab,
         category: filters.category || undefined,
         laboratory_id: filters.laboratory_id || undefined,
         is_active: filters.is_active,
@@ -89,7 +90,7 @@ export default function MethodsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, filters, message]);
+  }, [page, pageSize, filters, activeTab, message]);
 
   useEffect(() => {
     if (abortControllerRef.current) {
@@ -157,6 +158,13 @@ export default function MethodsPage() {
     setPage(1);
   };
 
+  const handleTabChange = (key: string) => {
+    setActiveTab(key as 'analysis' | 'reliability');
+    setPage(1);
+    setSearchValue('');
+    setFilters({});
+  };
+
   const handleStatusFilterChange = (value: string | undefined) => {
     if (value === undefined || value === '') {
       setFilters(prev => ({ ...prev, is_active: undefined }));
@@ -203,7 +211,7 @@ export default function MethodsPage() {
       render: (_, record) => record.laboratory?.name || '-',
     },
     {
-      title: '标准周期',
+      title: '预计周期',
       dataIndex: 'standard_cycle_hours',
       key: 'standard_cycle_hours',
       width: 100,
@@ -265,66 +273,62 @@ export default function MethodsPage() {
 
   return (
     <Card>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>分析/测试方法管理</h2>
+      <Tabs
+        activeKey={activeTab}
+        onChange={handleTabChange}
+        items={[
+          { key: 'analysis', label: '分析方法管理' },
+          { key: 'reliability', label: '可靠性测试方法管理' },
+        ]}
+      />
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Space wrap>
+          <Input
+            placeholder="搜索方法名称/代码"
+            prefix={<SearchOutlined />}
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            style={{ width: 200 }}
+            allowClear
+          />
+          <Select
+            placeholder="方法类别"
+            style={{ width: 120 }}
+            allowClear
+            value={filters.category}
+            onChange={(v) => handleFilterChange('category', v)}
+            options={Object.entries(categoryLabels).map(([value, label]) => ({ label, value }))}
+          />
+          <Select
+            placeholder="所属实验室"
+            style={{ width: 160 }}
+            allowClear
+            value={filters.laboratory_id}
+            onChange={(v) => handleFilterChange('laboratory_id', v)}
+            options={laboratories.map(lab => ({ label: lab.name, value: lab.id }))}
+          />
+          <Select
+            placeholder="状态"
+            style={{ width: 100 }}
+            allowClear
+            value={filters.is_active === undefined ? undefined : (filters.is_active ? 'true' : 'false')}
+            onChange={handleStatusFilterChange}
+            options={[
+              { label: '启用', value: 'true' },
+              { label: '停用', value: 'false' },
+            ]}
+          />
+        </Space>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={() => fetchMethods()}>
             刷新
           </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-            新增方法
+            {activeTab === 'analysis' ? '新增分析方法' : '新增测试方法'}
           </Button>
         </Space>
       </div>
-
-      <Space wrap style={{ marginBottom: 16 }}>
-        <Input
-          placeholder="搜索方法名称/代码"
-          prefix={<SearchOutlined />}
-          value={searchValue}
-          onChange={(e) => setSearchValue(e.target.value)}
-          style={{ width: 200 }}
-          allowClear
-        />
-        <Select
-          placeholder="方法类型"
-          style={{ width: 140 }}
-          allowClear
-          value={filters.method_type}
-          onChange={(v) => handleFilterChange('method_type', v)}
-          options={[
-            { label: '分析方法', value: 'analysis' },
-            { label: '可靠性测试', value: 'reliability' },
-          ]}
-        />
-        <Select
-          placeholder="方法类别"
-          style={{ width: 120 }}
-          allowClear
-          value={filters.category}
-          onChange={(v) => handleFilterChange('category', v)}
-          options={Object.entries(categoryLabels).map(([value, label]) => ({ label, value }))}
-        />
-        <Select
-          placeholder="所属实验室"
-          style={{ width: 160 }}
-          allowClear
-          value={filters.laboratory_id}
-          onChange={(v) => handleFilterChange('laboratory_id', v)}
-          options={laboratories.map(lab => ({ label: lab.name, value: lab.id }))}
-        />
-        <Select
-          placeholder="状态"
-          style={{ width: 100 }}
-          allowClear
-          value={filters.is_active === undefined ? undefined : (filters.is_active ? 'true' : 'false')}
-          onChange={handleStatusFilterChange}
-          options={[
-            { label: '启用', value: 'true' },
-            { label: '停用', value: 'false' },
-          ]}
-        />
-      </Space>
 
       <Table
         columns={columns}
@@ -346,6 +350,7 @@ export default function MethodsPage() {
       <MethodModal
         visible={modalVisible}
         method={editingMethod}
+        defaultMethodType={activeTab}
         onSuccess={handleModalSuccess}
         onCancel={handleModalCancel}
       />

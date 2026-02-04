@@ -6,6 +6,14 @@ import type {
   EquipmentFilters,
   EquipmentCapacity,
   PaginatedResponse,
+  EquipmentCategoryRecord,
+  EquipmentCategoryWithNames,
+  EquipmentCategoryFormData,
+  EquipmentCategoryUpdateData,
+  EquipmentNameRecord,
+  EquipmentNameWithCategory,
+  EquipmentNameFormData,
+  EquipmentNameUpdateData,
 } from '../types';
 
 interface GetEquipmentParams extends EquipmentFilters {
@@ -23,6 +31,7 @@ export interface EquipmentSchedule {
   work_order_id?: number;
   task_id?: number;
   operator_name?: string;
+  priority_level?: number;  // 优先级等级（1-5，1=最高）
 }
 
 export interface EquipmentGanttItem {
@@ -86,6 +95,7 @@ export const equipmentService = {
     laboratory_id?: number;
     site_id?: number;
     equipment_type?: string;
+    category?: string;
   }): Promise<GanttData> {
     const response = await api.get<GanttData>('/equipment/schedules/gantt', { params });
     return response.data;
@@ -115,5 +125,72 @@ export const equipmentService = {
   async getEquipmentCapacity(equipmentId: number): Promise<EquipmentCapacity> {
     const response = await api.get<EquipmentCapacity>(`/work-orders/equipment/${equipmentId}/capacity`);
     return response.data;
+  },
+
+  // ============================================================================
+  // Equipment Category Management (设备类别管理)
+  // ============================================================================
+
+  async getEquipmentCategories(isActive?: boolean): Promise<EquipmentCategoryRecord[]> {
+    const params: Record<string, unknown> = {};
+    if (isActive !== undefined) params.is_active = isActive;
+    const response = await api.get<EquipmentCategoryRecord[]>('/equipment-categories', { params });
+    return response.data;
+  },
+
+  async getEquipmentCategoryById(id: number): Promise<EquipmentCategoryWithNames> {
+    const response = await api.get<EquipmentCategoryWithNames>(`/equipment-categories/${id}`);
+    return response.data;
+  },
+
+  async createEquipmentCategory(data: EquipmentCategoryFormData): Promise<EquipmentCategoryRecord> {
+    const response = await api.post<EquipmentCategoryRecord>('/equipment-categories', data);
+    return response.data;
+  },
+
+  async updateEquipmentCategory(id: number, data: EquipmentCategoryUpdateData): Promise<EquipmentCategoryRecord> {
+    const response = await api.put<EquipmentCategoryRecord>(`/equipment-categories/${id}`, data);
+    return response.data;
+  },
+
+  async deleteEquipmentCategory(id: number): Promise<void> {
+    await api.delete(`/equipment-categories/${id}`);
+  },
+
+  // ============================================================================
+  // Equipment Name Management (设备名管理)
+  // ============================================================================
+
+  async getEquipmentNames(params?: {
+    category_id?: number;
+    is_active?: boolean;
+    search?: string;
+  }): Promise<EquipmentNameWithCategory[]> {
+    const response = await api.get<EquipmentNameWithCategory[]>('/equipment-names', { params });
+    return response.data;
+  },
+
+  async getEquipmentNamesByCategory(categoryId: number): Promise<EquipmentNameRecord[]> {
+    const response = await api.get<EquipmentNameRecord[]>(`/equipment-categories/${categoryId}/names`);
+    return response.data;
+  },
+
+  async getEquipmentNameById(id: number): Promise<EquipmentNameWithCategory> {
+    const response = await api.get<EquipmentNameWithCategory>(`/equipment-names/${id}`);
+    return response.data;
+  },
+
+  async createEquipmentName(data: EquipmentNameFormData): Promise<EquipmentNameRecord> {
+    const response = await api.post<EquipmentNameRecord>('/equipment-names', data);
+    return response.data;
+  },
+
+  async updateEquipmentName(id: number, data: EquipmentNameUpdateData): Promise<EquipmentNameRecord> {
+    const response = await api.put<EquipmentNameRecord>(`/equipment-names/${id}`, data);
+    return response.data;
+  },
+
+  async deleteEquipmentName(id: number): Promise<void> {
+    await api.delete(`/equipment-names/${id}`);
   },
 };

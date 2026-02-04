@@ -2,7 +2,7 @@
 Work Order schemas for request/response validation.
 """
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field
 
 from app.models.work_order import WorkOrderType, WorkOrderStatus, TaskStatus
@@ -16,9 +16,11 @@ class WorkOrderBase(BaseModel):
     laboratory_id: int
     site_id: int
     client_id: Optional[int] = None
+    product_id: Optional[int] = None
     testing_source: Optional[str] = Field(None, max_length=50)
     sla_deadline: Optional[datetime] = None
     standard_cycle_hours: Optional[float] = None
+    material_ids: Optional[List[int]] = []  # 选择的样品ID列表
 
 
 class WorkOrderCreate(WorkOrderBase):
@@ -31,18 +33,21 @@ class WorkOrderUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = None
     client_id: Optional[int] = None
+    product_id: Optional[int] = None
     testing_source: Optional[str] = Field(None, max_length=50)
     sla_deadline: Optional[datetime] = None
     assigned_engineer_id: Optional[int] = None
     status: Optional[WorkOrderStatus] = None
     standard_cycle_hours: Optional[float] = None
     priority_level: Optional[int] = Field(None, ge=1, le=5)
+    material_ids: Optional[List[int]] = None  # 选择的样品ID列表
 
 
 class WorkOrderResponse(WorkOrderBase):
     """Schema for work order response."""
     id: int
     order_number: str
+    product_id: Optional[int] = None
     assigned_engineer_id: Optional[int] = None
     status: WorkOrderStatus
     priority_score: float
@@ -54,6 +59,7 @@ class WorkOrderResponse(WorkOrderBase):
     assigned_at: Optional[datetime] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+    material_ids: Optional[List[int]] = []  # 选择的样品ID列表
 
     class Config:
         from_attributes = True
@@ -75,6 +81,27 @@ class MethodBrief(BaseModel):
     code: str
     method_type: str
     standard_cycle_hours: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PersonnelBrief(BaseModel):
+    """Brief personnel info for task response."""
+    id: int
+    employee_id: str
+    name: str
+    job_title: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class EquipmentBrief(BaseModel):
+    """Brief equipment info for task response."""
+    id: int
+    name: str
+    code: str
 
     class Config:
         from_attributes = True
@@ -120,7 +147,9 @@ class TaskResponse(BaseModel):
     method_id: Optional[int] = None
     method: Optional[MethodBrief] = None
     assigned_technician_id: Optional[int] = None
+    assigned_technician: Optional[PersonnelBrief] = None
     required_equipment_id: Optional[int] = None
+    required_equipment: Optional[EquipmentBrief] = None
     scheduled_equipment_id: Optional[int] = None
     required_capacity: Optional[int] = None
     status: TaskStatus

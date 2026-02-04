@@ -13,23 +13,18 @@ import { getRoleHomePage } from './utils/permissions';
 dayjs.locale('zh-cn');
 
 // Lazy-loaded page components for code splitting
-const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
-const EquipmentDashboard = lazy(() => import('./pages/EquipmentDashboard').then(m => ({ default: m.EquipmentDashboard })));
-const PersonnelDashboard = lazy(() => import('./pages/PersonnelDashboard').then(m => ({ default: m.PersonnelDashboard })));
-const SitesPage = lazy(() => import('./pages/SitesPage'));
-const LaboratoriesPage = lazy(() => import('./pages/LaboratoriesPage'));
-const PersonnelPage = lazy(() => import('./pages/PersonnelPage'));
+// Group pages (Tab-based navigation)
+const DashboardGroupPage = lazy(() => import('./pages/DashboardGroupPage'));
+const LocationGroupPage = lazy(() => import('./pages/LocationGroupPage'));
+const PersonnelGroupPage = lazy(() => import('./pages/PersonnelGroupPage'));
+const ClientGroupPage = lazy(() => import('./pages/ClientGroupPage'));
+const ProductGroupPage = lazy(() => import('./pages/ProductGroupPage'));
+
+// Individual pages (not grouped)
 const EquipmentPage = lazy(() => import('./pages/EquipmentPage'));
 const MaterialsPage = lazy(() => import('./pages/MaterialsPage'));
 const WorkOrdersPage = lazy(() => import('./pages/WorkOrdersPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
-const SkillsMatrix = lazy(() => import('./pages/SkillsMatrix'));
-const SkillsConfig = lazy(() => import('./pages/SkillsConfig'));
-const Transfers = lazy(() => import('./pages/Transfers'));
-const ShiftsPage = lazy(() => import('./pages/ShiftsPage'));
-const ClientsPage = lazy(() => import('./pages/ClientsPage'));
-const ClientSLAsPage = lazy(() => import('./pages/ClientSLAsPage'));
-const TestingSourceCategoriesPage = lazy(() => import('./pages/TestingSourceCategoriesPage'));
 const HandoversPage = lazy(() => import('./pages/HandoversPage'));
 const MethodsPage = lazy(() => import('./pages/MethodsPage'));
 const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'));
@@ -72,25 +67,20 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route element={<ProtectedRoute />}>
               <Route element={<MainLayout />}>
-                <Route path="/dashboard" element={<Suspense fallback={<PageLoading />}><DashboardPage /></Suspense>} />
-                <Route path="/equipment-dashboard" element={<Suspense fallback={<PageLoading />}><EquipmentDashboard /></Suspense>} />
-                <Route path="/personnel-dashboard" element={<Suspense fallback={<PageLoading />}><PersonnelDashboard /></Suspense>} />
-                <Route path="/sites" element={<Suspense fallback={<PageLoading />}><SitesPage /></Suspense>} />
-                <Route path="/laboratories" element={<Suspense fallback={<PageLoading />}><LaboratoriesPage /></Suspense>} />
-                <Route path="/personnel" element={<Suspense fallback={<PageLoading />}><PersonnelPage /></Suspense>} />
-                <Route path="/skills" element={<Suspense fallback={<PageLoading />}><SkillsMatrix /></Suspense>} />
-                <Route path="/skills-config" element={<Suspense fallback={<PageLoading />}><SkillsConfig /></Suspense>} />
-                <Route path="/transfers" element={<Suspense fallback={<PageLoading />}><Transfers /></Suspense>} />
-                <Route path="/shifts" element={<Suspense fallback={<PageLoading />}><ShiftsPage /></Suspense>} />
-                <Route path="/equipment" element={<Suspense fallback={<PageLoading />}><EquipmentPage /></Suspense>} />
-                <Route path="/materials" element={<Suspense fallback={<PageLoading />}><MaterialsPage /></Suspense>} />
+                {/* Group pages with Tab navigation */}
+                <Route path="/dashboard" element={<Suspense fallback={<PageLoading />}><DashboardGroupPage /></Suspense>} />
+                <Route path="/locations" element={<Suspense fallback={<PageLoading />}><LocationGroupPage /></Suspense>} />
+                <Route path="/personnel" element={<Suspense fallback={<PageLoading />}><PersonnelGroupPage /></Suspense>} />
+                <Route path="/clients" element={<Suspense fallback={<PageLoading />}><ClientGroupPage /></Suspense>} />
+                <Route path="/products" element={<Suspense fallback={<PageLoading />}><ProductGroupPage /></Suspense>} />
+                
+                {/* Individual pages */}
                 <Route path="/work-orders" element={<Suspense fallback={<PageLoading />}><WorkOrdersPage /></Suspense>} />
                 <Route path="/work-order-query" element={<Suspense fallback={<PageLoading />}><WorkOrderQueryPage /></Suspense>} />
-                <Route path="/clients" element={<Suspense fallback={<PageLoading />}><ClientsPage /></Suspense>} />
-                <Route path="/client-slas" element={<Suspense fallback={<PageLoading />}><ClientSLAsPage /></Suspense>} />
-                <Route path="/source-categories" element={<Suspense fallback={<PageLoading />}><TestingSourceCategoriesPage /></Suspense>} />
-                <Route path="/handovers" element={<Suspense fallback={<PageLoading />}><HandoversPage /></Suspense>} />
+                <Route path="/equipment" element={<Suspense fallback={<PageLoading />}><EquipmentPage /></Suspense>} />
+                <Route path="/materials" element={<Suspense fallback={<PageLoading />}><MaterialsPage /></Suspense>} />
                 <Route path="/methods" element={<Suspense fallback={<PageLoading />}><MethodsPage /></Suspense>} />
+                <Route path="/handovers" element={<Suspense fallback={<PageLoading />}><HandoversPage /></Suspense>} />
                 <Route path="/audit-logs" element={<Suspense fallback={<PageLoading />}><AuditLogsPage /></Suspense>} />
                 <Route path="/user-management" element={<Suspense fallback={<PageLoading />}><UserManagementPage /></Suspense>} />
                 <Route path="/settings" element={<Suspense fallback={<PageLoading />}><SettingsPage /></Suspense>} />

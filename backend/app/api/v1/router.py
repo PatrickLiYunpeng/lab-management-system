@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, sites, laboratories, personnel, skills,
     equipment, materials, work_orders, dashboard, shifts, handovers, methods,
-    audit_logs, clients, reports, users, permissions
+    audit_logs, clients, reports, users, permissions, products, equipment_categories
 )
 
 api_router = APIRouter()
@@ -19,13 +19,16 @@ api_router.include_router(laboratories.router)
 api_router.include_router(personnel.router)
 api_router.include_router(skills.router)
 api_router.include_router(equipment.router)
+api_router.include_router(equipment_categories.router)
 api_router.include_router(materials.router)
 api_router.include_router(work_orders.router)
+api_router.include_router(work_orders.consumption_router)  # Material consumptions
 api_router.include_router(dashboard.router)
 api_router.include_router(shifts.router)
 api_router.include_router(handovers.router)
 api_router.include_router(methods.router)
 api_router.include_router(audit_logs.router)
 api_router.include_router(clients.router)
+api_router.include_router(products.router)
 api_router.include_router(reports.router)
 api_router.include_router(permissions.router)

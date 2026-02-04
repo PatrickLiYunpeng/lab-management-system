@@ -15,10 +15,14 @@ from app.models.work_order import WorkOrder, WorkOrderType, WorkOrderStatus, Wor
 from app.models.laboratory import Laboratory
 from app.models.personnel import Personnel
 from app.models.method import Method
+from app.models.material import Material, MaterialStatus, MaterialType, MaterialConsumption, ConsumptionStatus, MaterialReplenishment, NonSapSource, MaterialHistory
 from app.schemas.work_order import (
     WorkOrderCreate, WorkOrderUpdate, WorkOrderResponse, WorkOrderListResponse,
     TaskCreate, TaskUpdate, TaskResponse, WorkOrderAssign, TaskAssign,
     EligibleTechniciansListResponse, EligibleTechnicianResponse, SkillMatchDetail, RequiredSkillInfo
+)
+from app.schemas.material import (
+    ConsumptionBatchCreate, ConsumptionVoid, ConsumptionResponse, ConsumptionListResponse
 )
 from app.api.deps import get_current_active_user, require_manager_or_above, require_engineer_or_above
 from app.models.user import User
@@ -43,6 +47,7 @@ def list_work_orders(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: Optional[str] = None,
+    work_order_id: Optional[int] = Query(None, description="按工单ID过滤"),
     work_order_type: Optional[WorkOrderType] = None,
     status_filter: Optional[WorkOrderStatus] = Query(None, alias="status"),
     laboratory_id: Optional[int] = None,
@@ -55,6 +60,8 @@ def list_work_orders(
     """List all work orders with pagination and filtering."""
     query = db.query(WorkOrder)
     
+    if work_order_id:
+        query = query.filter(WorkOrder.id == work_order_id)
     if search:
         query = query.filter(
             (WorkOrder.order_number.ilike(f"%{search}%")) |
@@ -82,8 +89,15 @@ def list_work_orders(
     # Sort by priority score descending (higher priority first)
     work_orders = query.order_by(WorkOrder.priority_score.desc()).offset(offset).limit(page_size).all()
     
+    # 构建响应，包含material_ids
+    items = []
+    for wo in work_orders:
+        response = WorkOrderResponse.model_validate(wo)
+        response.material_ids = [m.id for m in wo.selected_materials]
+        items.append(response)
+    
     return WorkOrderListResponse(
-        items=[WorkOrderResponse.model_validate(wo) for wo in work_orders],
+        items=items,
         total=total,
         page=page,
         page_size=page_size
@@ -100,7 +114,81 @@ def get_work_order(
     work_order = db.query(WorkOrder).filter(WorkOrder.id == work_order_id).first()
     if not work_order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found")
-    return WorkOrderResponse.model_validate(work_order)
+    
+    # 构建响应，包含material_ids
+    response = WorkOrderResponse.model_validate(work_order)
+    response.material_ids = [m.id for m in work_order.selected_materials]
+    return response
+
+
+@router.get("/available-materials/list")
+def get_available_materials(
+    search: Optional[str] = None,
+    site_id: Optional[int] = Query(None, description="按站点ID过滤"),
+    client_id: Optional[int] = Query(None, description="按客户ID过滤"),
+    product_id: Optional[int] = Query(None, description="按产品ID过滤"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    获取可选的样品列表。
+    仅返回样品类型材料（material_type = SAMPLE）。
+    排除状态为"已返还"、"遗失"、"已处置"的样品。
+    可按站点ID、客户ID、产品ID过滤。
+    """
+    # 排除的状态
+    excluded_statuses = [MaterialStatus.RETURNED, MaterialStatus.LOST, MaterialStatus.DISPOSED]
+    
+    # 只查询样品类型
+    query = db.query(Material).filter(
+        Material.material_type == MaterialType.SAMPLE,
+        ~Material.status.in_(excluded_statuses)
+    )
+    
+    # 按站点过滤
+    if site_id:
+        query = query.filter(Material.site_id == site_id)
+    
+    # 按客户过滤
+    if client_id:
+        query = query.filter(Material.client_id == client_id)
+    
+    # 按产品过滤
+    if product_id:
+        query = query.filter(Material.product_id == product_id)
+    
+    if search:
+        query = query.filter(
+            (Material.material_code.ilike(f"%{search}%")) |
+            (Material.name.ilike(f"%{search}%"))
+        )
+    
+    total = query.count()
+    offset = (page - 1) * page_size
+    materials = query.order_by(Material.name).offset(offset).limit(page_size).all()
+    
+    return {
+        "items": [
+            {
+                "id": m.id,
+                "material_code": m.material_code,
+                "name": m.name,
+                "status": m.status.value if m.status else None,
+                "material_type": m.material_type.value if m.material_type else None,
+                "storage_location": m.storage_location,
+                "quantity": m.quantity,
+                "unit": m.unit,
+                "client_id": m.client_id,
+                "product_id": m.product_id
+            }
+            for m in materials
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size
+    }
 
 
 @router.post("", response_model=WorkOrderResponse, status_code=status.HTTP_201_CREATED)
@@ -114,16 +202,27 @@ def create_work_order(
     if not lab:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Laboratory not found")
     
+    # 提取material_ids
+    work_order_data = data.model_dump()
+    material_ids = work_order_data.pop('material_ids', []) or []
+    
     work_order = WorkOrder(
         order_number=generate_order_number(),
         created_by_id=current_user.id,
-        **data.model_dump()
+        **work_order_data
     )
     
     # Calculate priority score
     work_order.priority_score = work_order.calculate_priority_score()
     
     db.add(work_order)
+    db.flush()  # 获取work_order.id
+    
+    # 添加选择的样品
+    if material_ids:
+        materials = db.query(Material).filter(Material.id.in_(material_ids)).all()
+        work_order.selected_materials = materials
+    
     db.commit()
     db.refresh(work_order)
     
@@ -138,7 +237,10 @@ def create_work_order(
         new_values={"title": work_order.title, "work_order_type": work_order.work_order_type.value}
     )
     
-    return WorkOrderResponse.model_validate(work_order)
+    # 构建响应，包含material_ids
+    response = WorkOrderResponse.model_validate(work_order)
+    response.material_ids = [m.id for m in work_order.selected_materials]
+    return response
 
 
 @router.put("/{work_order_id}", response_model=WorkOrderResponse)
@@ -156,8 +258,16 @@ def update_work_order(
     update_data = data.model_dump(exclude_unset=True)
     old_status = work_order.status.value if work_order.status else None
     
+    # 提取material_ids单独处理
+    material_ids = update_data.pop('material_ids', None)
+    
     for field, value in update_data.items():
         setattr(work_order, field, value)
+    
+    # 更新选择的样品
+    if material_ids is not None:
+        materials = db.query(Material).filter(Material.id.in_(material_ids)).all() if material_ids else []
+        work_order.selected_materials = materials
     
     # Recalculate priority if relevant fields changed
     if any(f in update_data for f in ["sla_deadline", "testing_source", "client_id"]):
@@ -200,7 +310,10 @@ def update_work_order(
             new_values=update_data
         )
     
-    return WorkOrderResponse.model_validate(work_order)
+    # 构建响应，包含material_ids
+    response = WorkOrderResponse.model_validate(work_order)
+    response.material_ids = [m.id for m in work_order.selected_materials]
+    return response
 
 
 @router.post("/{work_order_id}/assign", response_model=WorkOrderResponse)
@@ -282,18 +395,82 @@ def list_tasks(
 ):
     """List all tasks for a work order."""
     from sqlalchemy.orm import joinedload
+    from app.schemas.work_order import PersonnelBrief, EquipmentBrief
     
     work_order = db.query(WorkOrder).filter(WorkOrder.id == work_order_id).first()
     if not work_order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found")
     
     tasks = db.query(WorkOrderTask).options(
-        joinedload(WorkOrderTask.method)
+        joinedload(WorkOrderTask.method),
+        joinedload(WorkOrderTask.assigned_technician).joinedload(Personnel.user),
+        joinedload(WorkOrderTask.required_equipment)
     ).filter(
         WorkOrderTask.work_order_id == work_order_id
     ).order_by(WorkOrderTask.sequence).all()
     
-    return [TaskResponse.model_validate(t) for t in tasks]
+    # Build response with nested objects
+    result = []
+    for t in tasks:
+        # Build task data dict manually to avoid Pydantic validation issues with relationships
+        task_data = {
+            "id": t.id,
+            "work_order_id": t.work_order_id,
+            "task_number": t.task_number,
+            "title": t.title,
+            "description": t.description,
+            "sequence": t.sequence,
+            "method_id": t.method_id,
+            "method": None,
+            "assigned_technician_id": t.assigned_technician_id,
+            "assigned_technician": None,
+            "required_equipment_id": t.required_equipment_id,
+            "required_equipment": None,
+            "scheduled_equipment_id": t.scheduled_equipment_id,
+            "required_capacity": t.required_capacity,
+            "status": t.status,
+            "standard_cycle_hours": t.standard_cycle_hours,
+            "actual_cycle_hours": t.actual_cycle_hours,
+            "notes": t.notes,
+            "results": t.results,
+            "created_at": t.created_at,
+            "updated_at": t.updated_at,
+            "assigned_at": t.assigned_at,
+            "started_at": t.started_at,
+            "completed_at": t.completed_at,
+        }
+        
+        # Add method brief info
+        if t.method:
+            from app.schemas.work_order import MethodBrief
+            task_data["method"] = MethodBrief(
+                id=t.method.id,
+                name=t.method.name,
+                code=t.method.code
+            )
+        
+        # Add technician brief info
+        if t.assigned_technician:
+            tech = t.assigned_technician
+            task_data["assigned_technician"] = PersonnelBrief(
+                id=tech.id,
+                employee_id=tech.employee_id,
+                name=tech.user.full_name if tech.user else tech.employee_id,
+                job_title=tech.job_title
+            )
+        
+        # Add equipment brief info
+        if t.required_equipment:
+            equip = t.required_equipment
+            task_data["required_equipment"] = EquipmentBrief(
+                id=equip.id,
+                name=equip.name,
+                code=equip.code
+            )
+        
+        result.append(TaskResponse(**task_data))
+    
+    return result
 
 
 @router.post("/{work_order_id}/tasks", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
@@ -767,3 +944,233 @@ def export_tasks_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+# Material Consumption endpoints
+@router.post("/{work_order_id}/tasks/{task_id}/consumptions", response_model=list[ConsumptionResponse], status_code=status.HTTP_201_CREATED)
+def create_task_consumptions(
+    work_order_id: int,
+    task_id: int,
+    data: ConsumptionBatchCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_engineer_or_above)
+):
+    """
+    批量创建任务材料消耗记录。
+    仅支持非样品类型材料（consumable/reagent/tool/other）。
+    自动扣减库存并设置状态为"已登记"。
+    """
+    from sqlalchemy.orm import joinedload
+    from decimal import Decimal
+    
+    # 验证任务存在且属于指定工单
+    task = db.query(WorkOrderTask).filter(
+        WorkOrderTask.id == task_id,
+        WorkOrderTask.work_order_id == work_order_id
+    ).first()
+    
+    if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+    
+    created_consumptions = []
+    
+    for item in data.consumptions:
+        # 获取材料并验证
+        material = db.query(Material).filter(Material.id == item.material_id).first()
+        if not material:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"材料ID {item.material_id} 不存在"
+            )
+        
+        # 验证非样品类型
+        if material.material_type == MaterialType.SAMPLE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"材料 {material.name} 是样品类型，不支持消耗登记"
+            )
+        
+        # 验证库存充足
+        if material.quantity < item.quantity_consumed:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"材料 {material.name} 库存不足 (当前: {material.quantity}, 需要: {item.quantity_consumed})"
+            )
+        
+        # 计算总成本
+        total_cost = None
+        if item.unit_price is not None:
+            total_cost = Decimal(str(item.unit_price)) * item.quantity_consumed
+        
+        # 创建消耗记录
+        consumption = MaterialConsumption(
+            material_id=item.material_id,
+            task_id=task_id,
+            quantity_consumed=item.quantity_consumed,
+            unit_price=Decimal(str(item.unit_price)) if item.unit_price is not None else None,
+            total_cost=total_cost,
+            status=ConsumptionStatus.REGISTERED,
+            notes=item.notes,
+            created_by_id=current_user.id
+        )
+        db.add(consumption)
+        
+        # 扣减库存
+        material.quantity -= item.quantity_consumed
+        
+        # 记录库存变动历史
+        history = MaterialHistory(
+            material_id=material.id,
+            action="consumption",
+            old_status=material.status.value if material.status else None,
+            new_status=material.status.value if material.status else None,
+            notes=f"消耗登记: 任务 {task.task_number}, 数量 {item.quantity_consumed}",
+            performed_by_id=current_user.id
+        )
+        db.add(history)
+        
+        created_consumptions.append(consumption)
+    
+    db.commit()
+    
+    # 刷新获取关联数据
+    result = []
+    for c in created_consumptions:
+        db.refresh(c)
+        # 加载关联数据
+        consumption = db.query(MaterialConsumption).options(
+            joinedload(MaterialConsumption.material),
+            joinedload(MaterialConsumption.created_by)
+        ).filter(MaterialConsumption.id == c.id).first()
+        result.append(ConsumptionResponse.model_validate(consumption))
+    
+    return result
+
+
+@router.get("/{work_order_id}/tasks/{task_id}/consumptions", response_model=ConsumptionListResponse)
+def list_task_consumptions(
+    work_order_id: int,
+    task_id: int,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status_filter: Optional[ConsumptionStatus] = Query(None, alias="status"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    查询任务的材料消耗记录列表。
+    支持按状态筛选和分页。
+    """
+    from sqlalchemy.orm import joinedload
+    
+    # 验证任务存在且属于指定工单
+    task = db.query(WorkOrderTask).filter(
+        WorkOrderTask.id == task_id,
+        WorkOrderTask.work_order_id == work_order_id
+    ).first()
+    
+    if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+    
+    # 构建查询
+    query = db.query(MaterialConsumption).filter(MaterialConsumption.task_id == task_id)
+    
+    if status_filter:
+        query = query.filter(MaterialConsumption.status == status_filter)
+    
+    total = query.count()
+    offset = (page - 1) * page_size
+    
+    consumptions = query.options(
+        joinedload(MaterialConsumption.material),
+        joinedload(MaterialConsumption.created_by),
+        joinedload(MaterialConsumption.voided_by)
+    ).order_by(MaterialConsumption.consumed_at.desc()).offset(offset).limit(page_size).all()
+    
+    return ConsumptionListResponse(
+        items=[ConsumptionResponse.model_validate(c) for c in consumptions],
+        total=total,
+        page=page,
+        page_size=page_size
+    )
+
+
+# 创建独立路由器用于消耗记录作废（不带 work_order_id 前缀）
+consumption_router = APIRouter(prefix="/consumptions", tags=["Material Consumptions"])
+
+
+@consumption_router.post("/{consumption_id}/void", response_model=ConsumptionResponse)
+def void_consumption(
+    consumption_id: int,
+    data: ConsumptionVoid,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_engineer_or_above)
+):
+    """
+    作废材料消耗记录。
+    自动创建补充记录恢复库存，并设置状态为"已作废"。
+    消耗记录不可删除或修改，只能作废。
+    """
+    from sqlalchemy.orm import joinedload
+    
+    # 获取消耗记录
+    consumption = db.query(MaterialConsumption).options(
+        joinedload(MaterialConsumption.material),
+        joinedload(MaterialConsumption.task)
+    ).filter(MaterialConsumption.id == consumption_id).first()
+    
+    if not consumption:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="消耗记录不存在")
+    
+    # 验证状态为已登记
+    if consumption.status != ConsumptionStatus.REGISTERED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="只能作废状态为'已登记'的消耗记录"
+        )
+    
+    # 创建补充记录恢复库存
+    replenishment = MaterialReplenishment(
+        material_id=consumption.material_id,
+        received_date=datetime.now(timezone.utc),
+        quantity_added=consumption.quantity_consumed,
+        non_sap_source=NonSapSource.INVENTORY_ADJUSTMENT,
+        notes=f"作废消耗记录: CON-{consumption_id} - {data.void_reason}",
+        created_by_id=current_user.id
+    )
+    db.add(replenishment)
+    db.flush()  # 获取 replenishment.id
+    
+    # 恢复库存
+    material = consumption.material
+    material.quantity += consumption.quantity_consumed
+    
+    # 更新消耗记录状态
+    consumption.status = ConsumptionStatus.VOIDED
+    consumption.voided_at = datetime.now(timezone.utc)
+    consumption.voided_by_id = current_user.id
+    consumption.void_reason = data.void_reason
+    consumption.replenishment_id = replenishment.id
+    
+    # 记录库存变动历史
+    history = MaterialHistory(
+        material_id=material.id,
+        action="void_consumption",
+        old_status=material.status.value if material.status else None,
+        new_status=material.status.value if material.status else None,
+        notes=f"作废消耗: CON-{consumption_id}, 恢复数量 {consumption.quantity_consumed}, 原因: {data.void_reason}",
+        performed_by_id=current_user.id
+    )
+    db.add(history)
+    
+    db.commit()
+    db.refresh(consumption)
+    
+    # 重新加载关联数据
+    consumption = db.query(MaterialConsumption).options(
+        joinedload(MaterialConsumption.material),
+        joinedload(MaterialConsumption.created_by),
+        joinedload(MaterialConsumption.voided_by)
+    ).filter(MaterialConsumption.id == consumption_id).first()
+    
+    return ConsumptionResponse.model_validate(consumption)

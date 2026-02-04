@@ -10,6 +10,7 @@ const { TextArea } = Input;
 interface MethodModalProps {
   visible: boolean;
   method: Method | null;
+  defaultMethodType?: 'analysis' | 'reliability';
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -47,7 +48,7 @@ interface MethodFormValues {
   default_equipment_id?: number;
 }
 
-export function MethodModal({ visible, method, onSuccess, onCancel }: MethodModalProps) {
+export function MethodModal({ visible, method, defaultMethodType, onSuccess, onCancel }: MethodModalProps) {
   const [form] = Form.useForm<MethodFormValues>();
   const [loading, setLoading] = useState(false);
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
@@ -102,12 +103,13 @@ export function MethodModal({ visible, method, onSuccess, onCancel }: MethodModa
         form.setFieldsValue({
           requires_equipment: true,
           is_active: true,
+          method_type: defaultMethodType,
         });
         setSelectedLabId(null);
         setRequiresEquipment(true);
       }
     }
-  }, [visible, method, form]);
+  }, [visible, method, form, defaultMethodType]);
 
   const handleSubmit = async () => {
     try {
@@ -150,9 +152,22 @@ export function MethodModal({ visible, method, onSuccess, onCancel }: MethodModa
     }
   };
 
+  const getModalTitle = () => {
+    if (method) {
+      return '编辑分析/测试方法';
+    }
+    if (defaultMethodType === 'analysis') {
+      return '新增分析方法';
+    }
+    if (defaultMethodType === 'reliability') {
+      return '新增可靠性测试方法';
+    }
+    return '新增分析/测试方法';
+  };
+
   return (
     <Modal
-      title={method ? '编辑分析/测试方法' : '新增分析/测试方法'}
+      title={getModalTitle()}
       open={visible}
       onOk={handleSubmit}
       onCancel={onCancel}
@@ -176,7 +191,7 @@ export function MethodModal({ visible, method, onSuccess, onCancel }: MethodModa
           </Col>
           <Col span={6}>
             <Form.Item name="method_type" label="方法类型" rules={[{ required: true, message: '请选择方法类型' }]}>
-              <Select options={methodTypeOptions} placeholder="请选择" disabled={!!method} />
+              <Select options={methodTypeOptions} placeholder="请选择" disabled={!!method || !!defaultMethodType} />
             </Form.Item>
           </Col>
         </Row>
@@ -221,7 +236,7 @@ export function MethodModal({ visible, method, onSuccess, onCancel }: MethodModa
 
         <Row gutter={16}>
           <Col span={8}>
-            <Form.Item name="standard_cycle_hours" label="标准周期(小时)">
+            <Form.Item name="standard_cycle_hours" label="预计周期(小时)">
               <InputNumber
                 min={0.1}
                 max={1000}

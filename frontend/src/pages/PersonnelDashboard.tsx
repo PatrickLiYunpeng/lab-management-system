@@ -7,7 +7,9 @@ import {
   ReloadOutlined,
   CalendarOutlined,
   InboxOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { isAbortError } from '../services/api';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -18,7 +20,7 @@ import { Card, Button, Select, Spin, Progress, Alert, Tooltip, DatePicker, Space
 import { dashboardService } from '../services/dashboardService';
 import { siteService } from '../services/siteService';
 import { laboratoryService } from '../services/laboratoryService';
-import type { PersonnelGanttDataResponse, PersonnelGanttItem, PersonnelEfficiency } from '../services/dashboardService';
+import type { PersonnelGanttDataResponse, PersonnelGanttItem, PersonnelEfficiency, PersonnelGanttSchedule } from '../services/dashboardService';
 import type { Site, Laboratory } from '../types';
 
 const { Text, Title } = Typography;
@@ -29,6 +31,8 @@ type Language = 'zh' | 'en';
 const translations = {
   zh: {
     title: '人员仪表板',
+    dashboardTab: '统计仪表板',
+    ganttTab: '人员调度甘特图',
     totalPersonnel: '人员总数',
     availablePersonnel: '可用人员',
     busyPersonnel: '忙碌人员',
@@ -70,6 +74,8 @@ const translations = {
   },
   en: {
     title: 'Personnel Dashboard',
+    dashboardTab: 'Statistics Dashboard',
+    ganttTab: 'Personnel Scheduling Gantt',
     totalPersonnel: 'Total Personnel',
     availablePersonnel: 'Available',
     busyPersonnel: 'Busy',
@@ -138,15 +144,33 @@ const TASK_STATUS_COLORS: Record<string, string> = {
   cancelled: '#d9d9d9',
 };
 
+// 优先级颜色定义（按priority_level: 1=最高优先级，5=最低优先级）
+const PRIORITY_COLORS: Record<number, string> = {
+  1: '#ef4444',  // 紧急 - 红色
+  2: '#f97316',  // 高优先级 - 橙色
+  3: '#3b82f6',  // 正常 - 蓝色
+  4: '#22c55e',  // 低优先级 - 绿色
+  5: '#6b7280',  // 常规 - 灰色
+};
+
+const PRIORITY_LABELS: Record<number, { zh: string; en: string }> = {
+  1: { zh: '紧急', en: 'Urgent' },
+  2: { zh: '高', en: 'High' },
+  3: { zh: '正常', en: 'Normal' },
+  4: { zh: '低', en: 'Low' },
+  5: { zh: '常规', en: 'Routine' },
+};
+
 interface GanttChartContentProps {
   personnel: PersonnelGanttItem[];
   startDate: Dayjs;
   endDate: Dayjs;
   loading: boolean;
   t: typeof translations['zh'];
+  onScheduleClick?: (schedule: PersonnelGanttSchedule) => void;
 }
 
-function GanttChartContent({ personnel, startDate, endDate, loading, t }: GanttChartContentProps) {
+function GanttChartContent({ personnel, startDate, endDate, loading, t, onScheduleClick }: GanttChartContentProps) {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
@@ -246,7 +270,9 @@ function GanttChartContent({ personnel, startDate, endDate, loading, t }: GanttC
 
               if (width <= 0) return null;
 
-              const barColor = TASK_STATUS_COLORS[schedule.status] || '#1677ff';
+              // 使用优先级颜色（priority_level 1-5，默认为3）
+              const priorityLevel = schedule.priority_level || 3;
+              const barColor = PRIORITY_COLORS[priorityLevel] || PRIORITY_COLORS[3];
 
               return (
                 <Tooltip
@@ -255,19 +281,22 @@ function GanttChartContent({ personnel, startDate, endDate, loading, t }: GanttC
                     <div>
                       <div>{schedule.title}</div>
                       <div>{scheduleStart.format('MM-DD HH:mm')} - {scheduleEnd.format('MM-DD HH:mm')}</div>
+                      <div>{t.pending === '待处理' ? '优先级' : 'Priority'}: {PRIORITY_LABELS[priorityLevel]?.[t.pending === '待处理' ? 'zh' : 'en'] || PRIORITY_LABELS[3][t.pending === '待处理' ? 'zh' : 'en']}</div>
                       {schedule.work_order_number && <div>{t.workOrder}: {schedule.work_order_number}</div>}
                       <div>{t.task}: {schedule.task_number}</div>
-                      {schedule.equipment_name && <div>{t.equipment}: {schedule.equipment_name}</div>}
+                      {schedule.equipment_code && <div>{t.equipment}: {schedule.equipment_code}</div>}
+                      {schedule.equipment_name && !schedule.equipment_code && <div>{t.equipment}: {schedule.equipment_name}</div>}
                     </div>
                   }
                 >
                   <div
+                    onClick={() => onScheduleClick?.(schedule)}
                     style={{
                       position: 'absolute',
                       height: 20,
                       top: 4,
                       borderRadius: 4,
-                      cursor: 'pointer',
+                      cursor: schedule.work_order_id ? 'pointer' : 'default',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -280,7 +309,7 @@ function GanttChartContent({ personnel, startDate, endDate, loading, t }: GanttC
                       backgroundColor: barColor,
                     }}
                   >
-                    {width > 5 ? schedule.title : ''}
+                    {width > 5 ? (schedule.equipment_code || schedule.title) : ''}
                   </div>
                 </Tooltip>
               );
@@ -291,11 +320,12 @@ function GanttChartContent({ personnel, startDate, endDate, loading, t }: GanttC
 
       {/* Legend */}
       <div style={{ marginTop: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        {Object.entries(TASK_STATUS_COLORS).map(([status, color]) => (
-          <div key={status} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>{t.pending === '待处理' ? '优先级:' : 'Priority:'}</Text>
+        {Object.entries(PRIORITY_COLORS).map(([level, color]) => (
+          <div key={level} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <div style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: color }} />
             <Text type="secondary" style={{ fontSize: 12 }}>
-              {t[status as keyof typeof t] || status}
+              {PRIORITY_LABELS[Number(level)]?.[t.pending === '待处理' ? 'zh' : 'en'] || level}
             </Text>
           </div>
         ))}
@@ -305,7 +335,9 @@ function GanttChartContent({ personnel, startDate, endDate, loading, t }: GanttC
 }
 
 export function PersonnelDashboard() {
+  const navigate = useNavigate();
   const [language, setLanguage] = useState<Language>('zh');
+  const [mainTab, setMainTab] = useState<'dashboard' | 'gantt'>('dashboard');
   const [siteId, setSiteId] = useState<number | undefined>();
   const [laboratoryId, setLaboratoryId] = useState<number | undefined>();
   const [sites, setSites] = useState<Site[]>([]);
@@ -428,6 +460,13 @@ export function PersonnelDashboard() {
     return ganttData.personnel.filter(p => p.role === role);
   };
 
+  const handleScheduleClick = (schedule: PersonnelGanttSchedule) => {
+    if (schedule.work_order_id) {
+      // 跳转到工单页面并展开对应工单的子任务
+      navigate(`/work-orders?expand=${schedule.work_order_id}`);
+    }
+  };
+
   const rolePieData = Object.entries(personnelSummary.by_role).map(([role, count]) => ({
     name: t[role as keyof typeof t] || role,
     value: count,
@@ -447,7 +486,7 @@ export function PersonnelDashboard() {
     tasks: p.completed_tasks,
   }));
 
-  const tabItems = PERSONNEL_ROLES.map((role) => ({
+  const roleTabItems = PERSONNEL_ROLES.map((role) => ({
     key: role,
     label: (
       <span style={{ color: activeRole === role ? ROLE_COLORS[role] : undefined }}>
@@ -464,6 +503,7 @@ export function PersonnelDashboard() {
         endDate={ganttEndDate}
         loading={ganttLoading}
         t={t}
+        onScheduleClick={handleScheduleClick}
       />
     ),
   }));
@@ -471,6 +511,208 @@ export function PersonnelDashboard() {
   if (error) {
     return <Alert message={error} type="error" style={{ margin: 24 }} />;
   }
+
+  // 统计仪表板内容
+  const dashboardContent = (
+    <>
+      {/* Summary Cards */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card size="small">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <TeamOutlined style={{ fontSize: 32, color: '#1677ff' }} />
+              <div>
+                <Text type="secondary" style={{ fontSize: 14 }}>{t.totalPersonnel}</Text>
+                <div style={{ fontSize: 24, fontWeight: 600 }}>{personnelSummary.total}</div>
+              </div>
+            </div>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card size="small">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <CheckCircleOutlined style={{ fontSize: 32, color: '#52c41a' }} />
+              <div>
+                <Text type="secondary" style={{ fontSize: 14 }}>{t.availablePersonnel}</Text>
+                <div style={{ fontSize: 24, fontWeight: 600 }}>{personnelSummary.available}</div>
+              </div>
+            </div>
+            <Progress
+              percent={personnelSummary.total ? Math.round((personnelSummary.available / personnelSummary.total) * 100) : 0}
+              size="small"
+              strokeColor="#52c41a"
+              showInfo={false}
+              style={{ marginTop: 8 }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card size="small">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <ClockCircleOutlined style={{ fontSize: 32, color: '#1677ff' }} />
+              <div>
+                <Text type="secondary" style={{ fontSize: 14 }}>{t.busyPersonnel}</Text>
+                <div style={{ fontSize: 24, fontWeight: 600 }}>{personnelSummary.busy}</div>
+              </div>
+            </div>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card size="small">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <UserOutlined style={{ fontSize: 32, color: '#faad14' }} />
+              <div>
+                <Text type="secondary" style={{ fontSize: 14 }}>{t.onLeavePersonnel}</Text>
+                <div style={{ fontSize: 24, fontWeight: 600 }}>{personnelSummary.on_leave}</div>
+              </div>
+            </div>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Charts Row 1: Role and Status Distribution */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} lg={12}>
+          <Card size="small" title={t.byRole}>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={rolePieData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                  outerRadius={100}
+                  dataKey="value"
+                >
+                  {rolePieData.map((entry, index) => (
+                    <Cell key={index} fill={entry.color} />
+                  ))}
+                </Pie>
+                <RechartsTooltip formatter={(value) => [value, t.personnelCount]} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
+        </Col>
+        <Col xs={24} lg={12}>
+          <Card size="small" title={t.byStatus}>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={statusPieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={100}
+                  dataKey="value"
+                  label={({ name, value }) => `${name}: ${value}`}
+                >
+                  {statusPieData.map((entry, index) => (
+                    <Cell key={index} fill={entry.color} />
+                  ))}
+                </Pie>
+                <RechartsTooltip formatter={(value) => [value, t.personnelCount]} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Charts Row 2: Efficiency by Personnel */}
+      {efficiencyBarData.length > 0 && (
+        <Card size="small" title={t.efficiencyByRole}>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={efficiencyBarData} layout="vertical" margin={{ left: 60 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" domain={[0, 100]} unit="%" />
+              <YAxis type="category" dataKey="name" width={60} tick={{ fontSize: 12 }} />
+              <RechartsTooltip formatter={(value, name) => [
+                name === 'efficiency' ? `${value}%` : value,
+                name === 'efficiency' ? t.efficiencyRate : language === 'zh' ? '完成任务' : 'Tasks'
+              ]} />
+              <Bar dataKey="efficiency" radius={[0, 4, 4, 0]}>
+                {efficiencyBarData.map((entry, index) => (
+                  <Cell
+                    key={index}
+                    fill={
+                      entry.efficiency >= 80 ? '#52c41a' :
+                      entry.efficiency >= 60 ? '#1677ff' :
+                      entry.efficiency >= 40 ? '#faad14' : '#ff4d4f'
+                    }
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
+    </>
+  );
+
+  // 甘特图内容
+  const ganttContent = (
+    <Card size="small">
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
+        <Space wrap>
+          <Text type="secondary" style={{ fontSize: 14 }}>{t.dateRange}:</Text>
+          <DatePicker
+            value={ganttStartDate}
+            onChange={(date) => date && setGanttStartDate(date)}
+            size="small"
+          />
+          <span style={{ color: '#d9d9d9' }}>-</span>
+          <DatePicker
+            value={ganttEndDate}
+            onChange={(date) => date && setGanttEndDate(date)}
+            size="small"
+          />
+          <Tooltip title={t.maxRangeWarning}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              (max 7 {language === 'zh' ? '天' : 'days'})
+            </Text>
+          </Tooltip>
+          <Button
+            size="small"
+            icon={<ReloadOutlined />}
+            onClick={fetchGanttData}
+            loading={ganttLoading}
+          />
+        </Space>
+      </div>
+      
+      <Tabs
+        activeKey={activeRole}
+        onChange={(key) => setActiveRole(key as PersonnelRoleKey)}
+        items={roleTabItems}
+      />
+    </Card>
+  );
+
+  // 主 Tab 配置
+  const mainTabItems = [
+    {
+      key: 'dashboard',
+      label: (
+        <span>
+          <BarChartOutlined />
+          {t.dashboardTab}
+        </span>
+      ),
+      children: dashboardContent,
+    },
+    {
+      key: 'gantt',
+      label: (
+        <span>
+          <CalendarOutlined />
+          {t.ganttTab}
+        </span>
+      ),
+      children: ganttContent,
+    },
+  ];
 
   return (
     <div>
@@ -534,182 +776,12 @@ export function PersonnelDashboard() {
           <Text type="secondary" style={{ marginTop: 16 }}>{t.loading}</Text>
         </div>
       ) : (
-        <>
-          {/* Summary Cards */}
-          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-            <Col xs={24} sm={12} lg={6}>
-              <Card size="small">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <TeamOutlined style={{ fontSize: 32, color: '#1677ff' }} />
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 14 }}>{t.totalPersonnel}</Text>
-                    <div style={{ fontSize: 24, fontWeight: 600 }}>{personnelSummary.total}</div>
-                  </div>
-                </div>
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Card size="small">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <CheckCircleOutlined style={{ fontSize: 32, color: '#52c41a' }} />
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 14 }}>{t.availablePersonnel}</Text>
-                    <div style={{ fontSize: 24, fontWeight: 600 }}>{personnelSummary.available}</div>
-                  </div>
-                </div>
-                <Progress
-                  percent={personnelSummary.total ? Math.round((personnelSummary.available / personnelSummary.total) * 100) : 0}
-                  size="small"
-                  strokeColor="#52c41a"
-                  showInfo={false}
-                  style={{ marginTop: 8 }}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Card size="small">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <ClockCircleOutlined style={{ fontSize: 32, color: '#1677ff' }} />
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 14 }}>{t.busyPersonnel}</Text>
-                    <div style={{ fontSize: 24, fontWeight: 600 }}>{personnelSummary.busy}</div>
-                  </div>
-                </div>
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Card size="small">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <UserOutlined style={{ fontSize: 32, color: '#faad14' }} />
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 14 }}>{t.onLeavePersonnel}</Text>
-                    <div style={{ fontSize: 24, fontWeight: 600 }}>{personnelSummary.on_leave}</div>
-                  </div>
-                </div>
-              </Card>
-            </Col>
-          </Row>
-
-          {/* Charts Row 1: Role and Status Distribution */}
-          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-            <Col xs={24} lg={12}>
-              <Card size="small" title={t.byRole}>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={rolePieData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                      outerRadius={100}
-                      dataKey="value"
-                    >
-                      {rolePieData.map((entry, index) => (
-                        <Cell key={index} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip formatter={(value) => [value, t.personnelCount]} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Card>
-            </Col>
-            <Col xs={24} lg={12}>
-              <Card size="small" title={t.byStatus}>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={statusPieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={100}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}
-                    >
-                      {statusPieData.map((entry, index) => (
-                        <Cell key={index} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip formatter={(value) => [value, t.personnelCount]} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Card>
-            </Col>
-          </Row>
-
-          {/* Charts Row 2: Efficiency by Personnel */}
-          {efficiencyBarData.length > 0 && (
-            <Card size="small" title={t.efficiencyByRole} style={{ marginBottom: 16 }}>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={efficiencyBarData} layout="vertical" margin={{ left: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" domain={[0, 100]} unit="%" />
-                  <YAxis type="category" dataKey="name" width={60} tick={{ fontSize: 12 }} />
-                  <RechartsTooltip formatter={(value, name) => [
-                    name === 'efficiency' ? `${value}%` : value,
-                    name === 'efficiency' ? t.efficiencyRate : language === 'zh' ? '完成任务' : 'Tasks'
-                  ]} />
-                  <Bar dataKey="efficiency" radius={[0, 4, 4, 0]}>
-                    {efficiencyBarData.map((entry, index) => (
-                      <Cell
-                        key={index}
-                        fill={
-                          entry.efficiency >= 80 ? '#52c41a' :
-                          entry.efficiency >= 60 ? '#1677ff' :
-                          entry.efficiency >= 40 ? '#faad14' : '#ff4d4f'
-                        }
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </Card>
-          )}
-
-          {/* Personnel Scheduling Gantt Chart */}
-          <Card size="small">
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
-              <Space>
-                <CalendarOutlined style={{ fontSize: 16, color: '#8c8c8c' }} />
-                <Text strong>{t.ganttChart}</Text>
-              </Space>
-              <Space wrap>
-                <Text type="secondary" style={{ fontSize: 14 }}>{t.dateRange}:</Text>
-                <DatePicker
-                  value={ganttStartDate}
-                  onChange={(date) => date && setGanttStartDate(date)}
-                  size="small"
-                />
-                <span style={{ color: '#d9d9d9' }}>-</span>
-                <DatePicker
-                  value={ganttEndDate}
-                  onChange={(date) => date && setGanttEndDate(date)}
-                  size="small"
-                />
-                <Tooltip title={t.maxRangeWarning}>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    (max 7 {language === 'zh' ? '天' : 'days'})
-                  </Text>
-                </Tooltip>
-                <Button
-                  size="small"
-                  icon={<ReloadOutlined />}
-                  onClick={fetchGanttData}
-                  loading={ganttLoading}
-                />
-              </Space>
-            </div>
-            
-            <Tabs
-              activeKey={activeRole}
-              onChange={(key) => setActiveRole(key as PersonnelRoleKey)}
-              items={tabItems}
-            />
-          </Card>
-        </>
+        <Tabs
+          activeKey={mainTab}
+          onChange={(key) => setMainTab(key as 'dashboard' | 'gantt')}
+          items={mainTabItems}
+          size="large"
+        />
       )}
     </div>
   );

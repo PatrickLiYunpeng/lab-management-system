@@ -122,6 +122,7 @@ export interface GanttSchedule {
   work_order_id: number | null;
   task_id: number | null;
   operator_name: string | null;
+  priority_level?: number;  // 优先级等级（1-5，1=最高）
 }
 
 export interface GanttEquipment {
@@ -154,6 +155,8 @@ export interface PersonnelGanttSchedule {
   work_order_number: string | null;
   task_number: string;
   equipment_name: string | null;
+  equipment_code: string | null;
+  priority_level?: number;  // 优先级等级（1-5，1=最高）
 }
 
 export interface PersonnelGanttItem {

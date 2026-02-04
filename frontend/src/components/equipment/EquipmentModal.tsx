@@ -1,8 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import dayjs from 'dayjs';
 import { Modal, Form, Input, Select, InputNumber, DatePicker, Switch, Row, Col, App } from 'antd';
 import { equipmentService } from '../../services/equipmentService';
-import type { Equipment, EquipmentFormData, EquipmentUpdateData, Site, Laboratory } from '../../types';
+import type {
+  Equipment,
+  EquipmentFormData,
+  EquipmentUpdateData,
+  Site,
+  Laboratory,
+  EquipmentCategoryRecord,
+  EquipmentNameRecord,
+} from '../../types';
 
 const { TextArea } = Input;
 
@@ -20,17 +28,6 @@ const equipmentTypeOptions = [
   { label: '操作员依赖设备', value: 'operator_dependent' },
 ];
 
-const categoryOptions = [
-  { label: '热学设备', value: 'thermal' },
-  { label: '机械设备', value: 'mechanical' },
-  { label: '电学设备', value: 'electrical' },
-  { label: '光学设备', value: 'optical' },
-  { label: '分析设备', value: 'analytical' },
-  { label: '环境设备', value: 'environmental' },
-  { label: '测量设备', value: 'measurement' },
-  { label: '其他', value: 'other' },
-];
-
 const statusOptions = [
   { label: '可用', value: 'available' },
   { label: '使用中', value: 'in_use' },
@@ -43,7 +40,8 @@ interface EquipmentFormValues {
   name: string;
   code: string;
   equipment_type: string;
-  category?: string;
+  category_id?: number;
+  equipment_name_id?: number;
   site_id: number;
   laboratory_id: number;
   model?: string;
@@ -72,16 +70,55 @@ export function EquipmentModal({
   const [form] = Form.useForm<EquipmentFormValues>();
   const [loading, setLoading] = useState(false);
   const [selectedSiteId, setSelectedSiteId] = useState<number | undefined>();
+  const [categories, setCategories] = useState<EquipmentCategoryRecord[]>([]);
+  const [equipmentNames, setEquipmentNames] = useState<EquipmentNameRecord[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>();
   const { message } = App.useApp();
 
   const filteredLaboratories = selectedSiteId
     ? laboratories.filter((lab) => lab.site_id === selectedSiteId)
     : laboratories;
 
+  // Load categories
+  const fetchCategories = useCallback(async () => {
+    try {
+      const data = await equipmentService.getEquipmentCategories(true);
+      setCategories(data);
+    } catch {
+      console.error('Failed to fetch categories');
+    }
+  }, []);
+
+  // Load equipment names by category
+  const fetchEquipmentNames = useCallback(async (categoryId: number) => {
+    try {
+      const data = await equipmentService.getEquipmentNamesByCategory(categoryId);
+      setEquipmentNames(data.filter((n) => n.is_active));
+    } catch {
+      console.error('Failed to fetch equipment names');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (visible) {
+      fetchCategories();
+    }
+  }, [visible, fetchCategories]);
+
+  // Load equipment names when category changes
+  useEffect(() => {
+    if (selectedCategoryId) {
+      fetchEquipmentNames(selectedCategoryId);
+    } else {
+      setEquipmentNames([]);
+    }
+  }, [selectedCategoryId, fetchEquipmentNames]);
+
   useEffect(() => {
     if (visible) {
       if (equipment) {
         setSelectedSiteId(equipment.site_id);
+        setSelectedCategoryId(equipment.category_id);
         form.setFieldsValue({
           ...equipment,
           purchase_date: equipment.purchase_date ? dayjs(equipment.purchase_date) : undefined,
@@ -91,6 +128,8 @@ export function EquipmentModal({
         form.resetFields();
         form.setFieldsValue({ max_concurrent_tasks: 1, is_active: true });
         setSelectedSiteId(undefined);
+        setSelectedCategoryId(undefined);
+        setEquipmentNames([]);
       }
     }
   }, [visible, equipment, form]);
@@ -103,6 +142,24 @@ export function EquipmentModal({
       if (lab && lab.site_id !== value) {
         form.setFieldValue('laboratory_id', undefined);
       }
+    }
+  };
+
+  const handleCategoryChange = (value: number | undefined) => {
+    setSelectedCategoryId(value);
+    // Clear equipment name when category changes
+    form.setFieldValue('equipment_name_id', undefined);
+    form.setFieldValue('name', undefined);
+  };
+
+  const handleEquipmentNameChange = (value: number | undefined) => {
+    if (value) {
+      const selectedName = equipmentNames.find((en) => en.id === value);
+      if (selectedName) {
+        form.setFieldValue('name', selectedName.name);
+      }
+    } else {
+      form.setFieldValue('name', undefined);
     }
   };
 
@@ -154,8 +211,32 @@ export function EquipmentModal({
         </div>
         <Row gutter={16}>
           <Col span={6}>
-            <Form.Item name="name" label="设备名称" rules={[{ required: true, message: '请输入设备名称' }]}>
-              <Input placeholder="请输入设备名称" />
+            <Form.Item name="category_id" label="设备类别" rules={[{ required: true, message: '请选择设备类别' }]}>
+              <Select
+                placeholder="请选择设备类别"
+                showSearch
+                optionFilterProp="label"
+                onChange={handleCategoryChange}
+                options={categories.map((cat) => ({
+                  label: cat.name,
+                  value: cat.id,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={6}>
+            <Form.Item name="equipment_name_id" label="设备名称" rules={[{ required: true, message: '请选择设备名称' }]}>
+              <Select
+                placeholder={selectedCategoryId ? '请选择设备名称' : '请先选择类别'}
+                disabled={!selectedCategoryId}
+                showSearch
+                optionFilterProp="label"
+                onChange={handleEquipmentNameChange}
+                options={equipmentNames.map((en) => ({
+                  label: en.name,
+                  value: en.id,
+                }))}
+              />
             </Form.Item>
           </Col>
           <Col span={6}>
@@ -168,12 +249,12 @@ export function EquipmentModal({
               <Select placeholder="请选择设备类型" options={equipmentTypeOptions} />
             </Form.Item>
           </Col>
-          <Col span={6}>
-            <Form.Item name="category" label="设备类别">
-              <Select placeholder="请选择设备类别" options={categoryOptions} allowClear />
-            </Form.Item>
-          </Col>
         </Row>
+
+        {/* Hidden field for name - auto-filled from equipment_name_id */}
+        <Form.Item name="name" hidden>
+          <Input />
+        </Form.Item>
 
         <Row gutter={16}>
           <Col span={12}>

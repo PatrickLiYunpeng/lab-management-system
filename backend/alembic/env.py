@@ -20,7 +20,9 @@ from app.models import (  # noqa: F401
     Personnel, PersonnelStatus, StaffBorrowRequest,
     Skill, PersonnelSkill, ProficiencyLevel, SkillCategory,
     Equipment, EquipmentType, EquipmentStatus, EquipmentSchedule, EquipmentSkillRequirement,
-    Material, MaterialType, MaterialStatus, DisposalMethod, MaterialHistory, Client,
+    Material, MaterialType, MaterialStatus, DisposalMethod, MaterialHistory,
+    MaterialReplenishment, NonSapSource, ConsumptionStatus, MaterialConsumption,
+    Client, ClientSLA, TestingSourceCategory,
     WorkOrder, WorkOrderType, WorkOrderStatus, WorkOrderTask, TaskStatus, StandardCycleTime
 )
 # All models are imported from app/models/__init__.py

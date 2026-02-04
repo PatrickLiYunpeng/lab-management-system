@@ -5,7 +5,6 @@ import type { MenuProps } from 'antd';
 import {
   AppstoreOutlined,
   TeamOutlined,
-  ExperimentOutlined,
   ToolOutlined,
   FileTextOutlined,
   InboxOutlined,
@@ -17,16 +16,9 @@ import {
   BankOutlined,
   SwapOutlined,
   SolutionOutlined,
-  ClockCircleOutlined,
-  TagOutlined,
   UsergroupAddOutlined,
+  ShoppingOutlined,
   SearchOutlined,
-  DashboardOutlined,
-  DesktopOutlined,
-  ContactsOutlined,
-  TableOutlined,
-  ControlOutlined,
-  CalendarOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../stores/authStore';
 import { canAccessRoute } from '../utils/permissions';
@@ -62,51 +54,15 @@ interface MenuItemConfig {
 
 const allMenuItems: MenuItemConfig[] = [
   { key: '/work-orders', icon: <FileTextOutlined />, label: '工单管理', route: '/work-orders' },
-  {
-    key: 'dashboard-group',
-    icon: <AppstoreOutlined />,
-    label: '仪表板',
-    children: [
-      { key: '/dashboard', icon: <DashboardOutlined />, label: '综合仪表板', route: '/dashboard' },
-      { key: '/equipment-dashboard', icon: <DesktopOutlined />, label: '设备仪表板', route: '/equipment-dashboard' },
-      { key: '/personnel-dashboard', icon: <TeamOutlined />, label: '人员仪表板', route: '/personnel-dashboard' },
-      { key: '/work-order-query', icon: <SearchOutlined />, label: '工单查询', route: '/work-order-query' },
-    ],
-  },
-  {
-    key: 'location-group',
-    icon: <BankOutlined />,
-    label: '地址管理',
-    children: [
-      { key: '/sites', icon: <BankOutlined />, label: '站点管理', route: '/sites' },
-      { key: '/laboratories', icon: <ExperimentOutlined />, label: '实验室管理', route: '/laboratories' },
-    ],
-  },
-  {
-    key: 'personnel-group',
-    icon: <TeamOutlined />,
-    label: '人员管理',
-    children: [
-      { key: '/personnel', icon: <ContactsOutlined />, label: '人员列表', route: '/personnel' },
-      { key: '/skills', icon: <TableOutlined />, label: '技能矩阵', route: '/skills' },
-      { key: '/skills-config', icon: <ControlOutlined />, label: '技能配置', route: '/skills-config' },
-      { key: '/transfers', icon: <SwapOutlined />, label: '借调管理', route: '/transfers' },
-      { key: '/shifts', icon: <CalendarOutlined />, label: '班次管理', route: '/shifts' },
-    ],
-  },
+  { key: '/work-order-query', icon: <SearchOutlined />, label: '工单查询', route: '/work-order-query' },
+  { key: '/dashboard', icon: <AppstoreOutlined />, label: '仪表板', route: '/dashboard' },
+  { key: '/locations', icon: <BankOutlined />, label: '地址管理', route: '/locations' },
+  { key: '/personnel', icon: <TeamOutlined />, label: '人员管理', route: '/personnel' },
   { key: '/equipment', icon: <ToolOutlined />, label: '设备管理', route: '/equipment' },
   { key: '/methods', icon: <SolutionOutlined />, label: '分析/测试方法', route: '/methods' },
   { key: '/materials', icon: <InboxOutlined />, label: '物料管理', route: '/materials' },
-  {
-    key: 'client-group',
-    icon: <UsergroupAddOutlined />,
-    label: '客户与SLA',
-    children: [
-      { key: '/clients', icon: <UserOutlined />, label: '客户管理', route: '/clients' },
-      { key: '/client-slas', icon: <ClockCircleOutlined />, label: 'SLA配置', route: '/client-slas' },
-      { key: '/source-categories', icon: <TagOutlined />, label: '来源类别', route: '/source-categories' },
-    ],
-  },
+  { key: '/clients', icon: <UsergroupAddOutlined />, label: '客户与SLA', route: '/clients' },
+  { key: '/products', icon: <ShoppingOutlined />, label: '产品管理', route: '/products' },
   { key: '/handovers', icon: <SwapOutlined />, label: '任务交接', route: '/handovers' },
   { key: '/audit-logs', icon: <FileTextOutlined />, label: '审计日志', route: '/audit-logs' },
   { key: '/user-management', icon: <UsergroupAddOutlined />, label: '用户管理', route: '/user-management' },

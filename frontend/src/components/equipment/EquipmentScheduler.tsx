@@ -4,12 +4,13 @@ import {
   LeftOutlined,
   RightOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
 import { Button, Select, Spin, Tag, Tooltip, DatePicker, App } from 'antd';
 import { equipmentService } from '../../services/equipmentService';
 import { laboratoryService } from '../../services/laboratoryService';
 import type { EquipmentGanttItem, EquipmentSchedule } from '../../services/equipmentService';
-import type { Laboratory } from '../../types';
+import type { Laboratory, EquipmentCategory } from '../../types';
 
 const statusColors: Record<string, string> = {
   scheduled: '#3b82f6',
@@ -25,9 +26,37 @@ const statusLabels: Record<string, string> = {
   cancelled: '已取消',
 };
 
+// 优先级颜色定义（按priority_level: 1=最高优先级，5=最低优先级）
+const priorityColors: Record<number, string> = {
+  1: '#ef4444',  // 紧急 - 红色
+  2: '#f97316',  // 高优先级 - 橙色
+  3: '#3b82f6',  // 正常 - 蓝色
+  4: '#22c55e',  // 低优先级 - 绿色
+  5: '#6b7280',  // 常规 - 灰色
+};
+
+const priorityLabels: Record<number, string> = {
+  1: '紧急',
+  2: '高',
+  3: '正常',
+  4: '低',
+  5: '常规',
+};
+
 const equipmentTypeLabels: Record<string, string> = {
   autonomous: '自主运行',
   operator_dependent: '操作员依赖',
+};
+
+const categoryLabels: Record<EquipmentCategory, string> = {
+  thermal: '热学设备',
+  mechanical: '机械设备',
+  electrical: '电学设备',
+  optical: '光学设备',
+  analytical: '分析设备',
+  environmental: '环境设备',
+  measurement: '测量设备',
+  other: '其他',
 };
 
 interface EquipmentSchedulerProps {
@@ -36,10 +65,12 @@ interface EquipmentSchedulerProps {
 
 export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedulerProps) {
   const { message } = App.useApp();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
   const [equipment, setEquipment] = useState<EquipmentGanttItem[]>([]);
   const [laboratoryId, setLaboratoryId] = useState<number | undefined>(propLabId);
+  const [category, setCategory] = useState<EquipmentCategory | undefined>(undefined);
   const [startDate, setStartDate] = useState<Dayjs>(dayjs().startOf('day'));
   const [endDate, setEndDate] = useState<Dayjs>(dayjs().add(7, 'day').endOf('day'));
 
@@ -78,6 +109,7 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
         start_date: startDate.format('YYYY-MM-DD'),
         end_date: endDate.format('YYYY-MM-DD'),
         laboratory_id: laboratoryId,
+        category: category,
       });
       setEquipment(data.equipment);
     } catch {
@@ -85,7 +117,7 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, laboratoryId, message]);
+  }, [startDate, endDate, laboratoryId, category, message]);
 
   useEffect(() => {
     fetchLaboratories();
@@ -114,6 +146,17 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
     setLaboratoryId(value);
   };
 
+  const handleCategoryChange = (value: EquipmentCategory | undefined) => {
+    setCategory(value);
+  };
+
+  const handleScheduleClick = (schedule: EquipmentSchedule) => {
+    if (schedule.work_order_id) {
+      // 跳转到工单页面并展开对应工单的子任务
+      navigate(`/work-orders?expand=${schedule.work_order_id}`);
+    }
+  };
+
   // Calculate position and width for a schedule bar
   const getScheduleStyle = (schedule: EquipmentSchedule) => {
     const start = dayjs(schedule.start_time);
@@ -131,17 +174,22 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
     const left = (startHours / totalHours) * 100;
     const width = (durationHours / totalHours) * 100;
 
+    // 使用优先级颜色（priority_level 1-5，默认为3）
+    const priorityLevel = schedule.priority_level || 3;
+    const backgroundColor = priorityColors[priorityLevel] || priorityColors[3];
+
     return {
       left: `${Math.max(0, left)}%`,
       width: `${Math.min(100 - left, Math.max(0.5, width))}%`,
-      backgroundColor: statusColors[schedule.status] || '#3b82f6',
+      backgroundColor,
     };
   };
 
   const getScheduleTooltipContent = (schedule: EquipmentSchedule) => {
     const start = dayjs(schedule.start_time);
     const end = dayjs(schedule.end_time);
-    return `${schedule.title || '排程'}\n开始: ${start.format('MM/DD HH:mm')}\n结束: ${end.format('MM/DD HH:mm')}\n状态: ${statusLabels[schedule.status] || schedule.status}${schedule.operator_name ? `\n操作员: ${schedule.operator_name}` : ''}`;
+    const priorityLevel = schedule.priority_level || 3;
+    return `${schedule.title || '排程'}\n开始: ${start.format('MM/DD HH:mm')}\n结束: ${end.format('MM/DD HH:mm')}\n优先级: ${priorityLabels[priorityLevel] || '正常'}\n状态: ${statusLabels[schedule.status] || schedule.status}${schedule.operator_name ? `\n操作员: ${schedule.operator_name}` : ''}`;
   };
 
   return (
@@ -171,6 +219,19 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
               options={laboratories.map((lab) => ({
                 label: lab.name,
                 value: lab.id,
+              }))}
+            />
+          </div>
+          <div style={{ width: 140 }}>
+            <Select
+              placeholder="设备类别"
+              value={category}
+              onChange={handleCategoryChange}
+              allowClear
+              style={{ width: '100%' }}
+              options={Object.entries(categoryLabels).map(([value, label]) => ({
+                label,
+                value,
               }))}
             />
           </div>
@@ -280,13 +341,14 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
                     {eq.schedules.map((schedule) => (
                       <Tooltip key={schedule.id} title={getScheduleTooltipContent(schedule)}>
                         <div
+                          onClick={() => handleScheduleClick(schedule)}
                           style={{
                             position: 'absolute',
                             top: 8,
                             height: 'calc(100% - 16px)',
                             minHeight: 24,
                             borderRadius: 4,
-                            cursor: 'pointer',
+                            cursor: schedule.work_order_id ? 'pointer' : 'default',
                             display: 'flex',
                             alignItems: 'center',
                             padding: '0 8px',
@@ -317,15 +379,15 @@ export function EquipmentScheduler({ laboratoryId: propLabId }: EquipmentSchedul
 
             {/* Legend */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16, marginTop: 16 }}>
-              <span style={{ fontSize: 12, color: '#737373' }}>状态:</span>
-              {Object.entries(statusLabels).map(([status, label]) => (
+              <span style={{ fontSize: 12, color: '#737373' }}>优先级:</span>
+              {Object.entries(priorityLabels).map(([level, label]) => (
                 <Tag
-                  key={status}
-                  color={
-                    status === 'scheduled' ? 'blue' :
-                    status === 'in_progress' ? 'success' :
-                    status === 'completed' ? 'default' : 'error'
-                  }
+                  key={level}
+                  style={{ 
+                    backgroundColor: priorityColors[Number(level)], 
+                    color: '#fff',
+                    border: 'none'
+                  }}
                 >
                   {label}
                 </Tag>

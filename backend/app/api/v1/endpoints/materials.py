@@ -7,12 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.material import Material, MaterialType, MaterialStatus, DisposalMethod, MaterialHistory, Client
+from app.models.material import Material, MaterialType, MaterialStatus, DisposalMethod, MaterialHistory, MaterialReplenishment, Client
 from app.models.laboratory import Laboratory
 from app.models.site import Site
 from app.schemas.material import (
     MaterialCreate, MaterialUpdate, MaterialResponse, MaterialListResponse,
     MaterialDispose, MaterialReturn,
+    ReplenishmentCreate, ReplenishmentResponse, ReplenishmentListResponse,
     ClientCreate, ClientUpdate, ClientResponse, ClientListResponse
 )
 from app.api.deps import get_current_active_user, require_manager_or_above, require_engineer_or_above
@@ -212,6 +213,97 @@ def return_material(
     db.refresh(material)
     
     return MaterialResponse.model_validate(material)
+
+
+# Material replenishment endpoints
+@router.post("/{material_id}/replenish", response_model=MaterialResponse)
+def replenish_material(
+    material_id: int,
+    data: ReplenishmentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_engineer_or_above)
+):
+    """
+    Replenish material (add stock). Requires engineer or above role.
+    Only non-sample materials can be replenished.
+    Either sap_order_no or non_sap_source must be provided.
+    """
+    material = db.query(Material).filter(Material.id == material_id).first()
+    if not material:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
+    
+    # Only allow replenishment for non-sample materials
+    if material.material_type == MaterialType.SAMPLE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sample materials cannot be replenished. Use create material instead."
+        )
+    
+    # Validate that at least one source is provided
+    if not data.sap_order_no and not data.non_sap_source:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either SAP order number or non-SAP source must be provided"
+        )
+    
+    # Create replenishment record
+    replenishment = MaterialReplenishment(
+        material_id=material_id,
+        received_date=data.received_date,
+        quantity_added=data.quantity_added,
+        sap_order_no=data.sap_order_no,
+        non_sap_source=data.non_sap_source,
+        notes=data.notes,
+        created_by_id=current_user.id
+    )
+    db.add(replenishment)
+    
+    # Update material quantity
+    old_quantity = material.quantity
+    material.quantity += data.quantity_added
+    
+    # Create history record for quantity change
+    source_info = data.sap_order_no or (data.non_sap_source.value if data.non_sap_source else "unknown")
+    history = MaterialHistory(
+        material_id=material_id,
+        from_status=material.status,
+        to_status=material.status,
+        changed_by_id=current_user.id,
+        notes=f"Replenished: +{data.quantity_added} (from {old_quantity} to {material.quantity}). Source: {source_info}"
+    )
+    db.add(history)
+    
+    db.commit()
+    db.refresh(material)
+    
+    return MaterialResponse.model_validate(material)
+
+
+@router.get("/{material_id}/replenishments", response_model=ReplenishmentListResponse)
+def get_material_replenishments(
+    material_id: int,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get replenishment history for a specific material."""
+    material = db.query(Material).filter(Material.id == material_id).first()
+    if not material:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
+    
+    query = db.query(MaterialReplenishment).filter(MaterialReplenishment.material_id == material_id)
+    
+    total = query.count()
+    offset = (page - 1) * page_size
+    replenishments = query.order_by(MaterialReplenishment.created_at.desc()).offset(offset).limit(page_size).all()
+    
+    return ReplenishmentListResponse(
+        items=[ReplenishmentResponse.model_validate(r) for r in replenishments],
+        total=total,
+        page=page,
+        page_size=page_size
+    )
 
 
 # Client management endpoints

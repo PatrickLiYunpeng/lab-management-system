@@ -531,6 +531,8 @@ def get_personnel_gantt_data(
                     "work_order_number": t.work_order.order_number if t.work_order else None,
                     "task_number": t.task_number,
                     "equipment_name": t.scheduled_equipment.name if t.scheduled_equipment else None,
+                    "equipment_code": t.scheduled_equipment.code if t.scheduled_equipment else None,
+                    "priority_level": t.work_order.priority_level if t.work_order else 3,
                 }
                 for t in p_tasks
             ]

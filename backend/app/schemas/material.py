@@ -5,7 +5,8 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
 
-from app.models.material import MaterialType, MaterialStatus, DisposalMethod
+from app.models.material import MaterialType, MaterialStatus, DisposalMethod, NonSapSource, ConsumptionStatus
+from app.models.method import MethodType
 
 
 class MaterialBase(BaseModel):
@@ -84,6 +85,51 @@ class MaterialReturn(BaseModel):
     return_notes: Optional[str] = None
 
 
+# Replenishment schemas
+class UserBrief(BaseModel):
+    """Brief user info for nested response."""
+    id: int
+    username: str
+    full_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ReplenishmentCreate(BaseModel):
+    """Schema for creating material replenishment."""
+    received_date: datetime
+    quantity_added: int = Field(..., ge=1, description="增加数量，必须大于0")
+    sap_order_no: Optional[str] = Field(None, max_length=100, description="SAP订单号")
+    non_sap_source: Optional[NonSapSource] = Field(None, description="非SAP来源")
+    notes: Optional[str] = Field(None, description="备注")
+
+
+class ReplenishmentResponse(BaseModel):
+    """Schema for replenishment response."""
+    id: int
+    material_id: int
+    received_date: datetime
+    quantity_added: int
+    sap_order_no: Optional[str] = None
+    non_sap_source: Optional[NonSapSource] = None
+    notes: Optional[str] = None
+    created_by_id: int
+    created_at: datetime
+    created_by: Optional[UserBrief] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ReplenishmentListResponse(BaseModel):
+    """Schema for paginated replenishment list response."""
+    items: list[ReplenishmentResponse]
+    total: int
+    page: int
+    page_size: int
+
+
 # Client schemas
 class ClientBase(BaseModel):
     """Base client schema."""
@@ -141,7 +187,8 @@ class ClientSLABase(BaseModel):
     """Base schema for ClientSLA."""
     client_id: int
     laboratory_id: Optional[int] = None
-    service_type: str = Field(..., min_length=1, max_length=100)
+    method_type: Optional[MethodType] = None
+    source_category_id: Optional[int] = None
     commitment_hours: int = Field(..., ge=1)
     max_hours: Optional[int] = Field(None, ge=1)
     priority_weight: int = Field(default=0, ge=0, le=30)
@@ -156,7 +203,8 @@ class ClientSLACreate(ClientSLABase):
 class ClientSLAUpdate(BaseModel):
     """Schema for updating a ClientSLA."""
     laboratory_id: Optional[int] = None
-    service_type: Optional[str] = Field(None, min_length=1, max_length=100)
+    method_type: Optional[MethodType] = None
+    source_category_id: Optional[int] = None
     commitment_hours: Optional[int] = Field(None, ge=1)
     max_hours: Optional[int] = Field(None, ge=1)
     priority_weight: Optional[int] = Field(None, ge=0, le=30)
@@ -184,14 +232,34 @@ class ClientBrief(BaseModel):
         from_attributes = True
 
 
-class ClientSLAResponse(ClientSLABase):
+class SourceCategoryBrief(BaseModel):
+    """Brief source category info for nested response."""
+    id: int
+    name: str
+    code: str
+    color: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ClientSLAResponse(BaseModel):
     """Schema for ClientSLA response."""
     id: int
+    client_id: int
+    laboratory_id: Optional[int] = None
+    method_type: Optional[MethodType] = None
+    source_category_id: Optional[int] = None
+    commitment_hours: int
+    max_hours: Optional[int] = None
+    priority_weight: int
+    description: Optional[str] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime
     client: Optional[ClientBrief] = None
     laboratory: Optional[LaboratoryBrief] = None
+    source_category: Optional[SourceCategoryBrief] = None
 
     class Config:
         from_attributes = True
@@ -248,6 +316,70 @@ class TestingSourceCategoryResponse(TestingSourceCategoryBase):
 class TestingSourceCategoryListResponse(BaseModel):
     """Schema for paginated TestingSourceCategory list response."""
     items: list[TestingSourceCategoryResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+# Consumption schemas
+class MaterialBrief(BaseModel):
+    """Brief material info for nested response."""
+    id: int
+    material_code: str
+    name: str
+    material_type: MaterialType
+    quantity: int
+    unit: str
+
+    class Config:
+        from_attributes = True
+
+
+class ConsumptionCreate(BaseModel):
+    """Schema for creating a single consumption record."""
+    material_id: int = Field(..., description="物料ID")
+    quantity_consumed: int = Field(..., ge=1, description="消耗数量，必须大于0")
+    unit_price: Optional[float] = Field(None, ge=0, description="单价")
+    notes: Optional[str] = Field(None, description="备注")
+
+
+class ConsumptionBatchCreate(BaseModel):
+    """Schema for batch creating consumption records."""
+    consumptions: list[ConsumptionCreate] = Field(..., min_length=1, description="消耗记录列表")
+
+
+class ConsumptionVoid(BaseModel):
+    """Schema for voiding a consumption record."""
+    void_reason: str = Field(..., min_length=1, max_length=500, description="作废原因")
+
+
+class ConsumptionResponse(BaseModel):
+    """Schema for consumption response."""
+    id: int
+    material_id: int
+    task_id: int
+    quantity_consumed: int
+    unit_price: Optional[float] = None
+    total_cost: Optional[float] = None
+    status: ConsumptionStatus
+    notes: Optional[str] = None
+    consumed_at: datetime
+    created_by_id: int
+    voided_at: Optional[datetime] = None
+    voided_by_id: Optional[int] = None
+    void_reason: Optional[str] = None
+    replenishment_id: Optional[int] = None
+    material: Optional[MaterialBrief] = None
+    created_by: Optional[UserBrief] = None
+    voided_by: Optional[UserBrief] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ConsumptionListResponse(BaseModel):
+    """Schema for paginated consumption list response."""
+    items: list[ConsumptionResponse]
     total: int
     page: int
     page_size: int

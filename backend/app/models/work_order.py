@@ -21,10 +21,20 @@
 """
 from datetime import datetime, timezone
 from enum import Enum
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Enum as SQLEnum, Float
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Enum as SQLEnum, Float, Table
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+
+
+# 工单-样品多对多关联表
+work_order_materials = Table(
+    "work_order_materials",
+    Base.metadata,
+    Column("work_order_id", Integer, ForeignKey("work_orders.id"), primary_key=True),
+    Column("material_id", Integer, ForeignKey("materials.id"), primary_key=True),
+    Column("created_at", DateTime, default=lambda: datetime.now(timezone.utc))
+)
 
 
 def utcnow():
@@ -155,6 +165,7 @@ class WorkOrder(Base):
     
     # 客户和SLA
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=True)    # 客户ID
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)  # 产品ID
     testing_source = Column(String(50), nullable=True)                       # 测试来源（internal/external/customer等）
     sla_deadline = Column(DateTime, nullable=True)                           # SLA截止时间
     
@@ -186,10 +197,13 @@ class WorkOrder(Base):
     laboratory = relationship("Laboratory", backref="work_orders")                    # 所属实验室
     site = relationship("Site", backref="work_orders")                                 # 所属站点
     client = relationship("Client", backref="work_orders")                             # 客户
+    product = relationship("Product", backref="work_orders")                           # 产品
     assigned_engineer = relationship("Personnel", foreign_keys=[assigned_engineer_id], backref="assigned_work_orders")
     created_by = relationship("User", foreign_keys=[created_by_id])                   # 创建人
     tasks = relationship("WorkOrderTask", back_populates="work_order", cascade="all, delete-orphan")  # 任务列表
     materials = relationship("Material", backref="work_order", foreign_keys="Material.current_work_order_id")
+    # 多对多关系：工单选择的样品
+    selected_materials = relationship("Material", secondary="work_order_materials", backref="selected_work_orders")
 
     def __repr__(self):
         """返回工单对象的字符串表示"""

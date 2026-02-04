@@ -6,6 +6,8 @@ import type {
   MaterialFilters,
   Client,
   PaginatedResponse,
+  Replenishment,
+  ReplenishmentFormData,
 } from '../types';
 
 interface GetMaterialsParams extends MaterialFilters {
@@ -50,6 +52,23 @@ export const materialService = {
 
   async returnMaterial(id: number, data: { return_tracking_number?: string; return_notes?: string }): Promise<Material> {
     const response = await api.post<Material>(`/materials/${id}/return`, data);
+    return response.data;
+  },
+
+  // Replenishment endpoints
+  async replenishMaterial(id: number, data: ReplenishmentFormData): Promise<Material> {
+    const response = await api.post<Material>(`/materials/${id}/replenish`, data);
+    return response.data;
+  },
+
+  async getReplenishments(
+    materialId: number,
+    params: { page?: number; page_size?: number } = {}
+  ): Promise<PaginatedResponse<Replenishment>> {
+    const response = await api.get<PaginatedResponse<Replenishment>>(
+      `/materials/${materialId}/replenishments`,
+      { params }
+    );
     return response.data;
   },
 

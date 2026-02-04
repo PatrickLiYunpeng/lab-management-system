@@ -8,14 +8,22 @@ import { clientSlaService } from '../services/clientSlaService';
 import { clientService } from '../services/clientService';
 import { laboratoryService } from '../services/laboratoryService';
 import { isAbortError } from '../services/api';
-import type { ClientSLA, ClientSLAFormData, Client, Laboratory } from '../types';
+import type { ClientSLA, ClientSLAFormData, Client, Laboratory, TestingSourceCategory, MethodType } from '../types';
+import { MethodType as MethodTypeEnum } from '../types';
 
 const { TextArea } = Input;
+
+// 方法类型标签显示配置
+const methodTypeLabels: Record<MethodType, string> = {
+  [MethodTypeEnum.ANALYSIS]: '分析',
+  [MethodTypeEnum.RELIABILITY]: '可靠性',
+};
 
 interface SLAFormValues {
   client_id: number;
   laboratory_id?: number;
-  service_type: string;
+  method_type?: MethodType;
+  source_category_id?: number;
   commitment_hours: number;
   max_hours?: number;
   priority_weight: number;
@@ -27,6 +35,7 @@ export default function ClientSLAsPage() {
   const [slas, setSlas] = useState<ClientSLA[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
+  const [sourceCategories, setSourceCategories] = useState<TestingSourceCategory[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingSLA, setEditingSLA] = useState<ClientSLA | null>(null);
@@ -66,13 +75,15 @@ export default function ClientSLAsPage() {
 
   const fetchReferenceData = useCallback(async () => {
     try {
-      const [clientsData, labsData] = await Promise.all([
+      const [clientsData, labsData, sourceCatsData] = await Promise.all([
         clientService.getAllClients(),
         laboratoryService.getLaboratories({ page_size: 100 }),
+        clientSlaService.getAllSourceCategories(),
       ]);
       if (isMountedRef.current) {
         setClients(clientsData);
         setLaboratories(labsData.items);
+        setSourceCategories(sourceCatsData);
       }
     } catch (err) {
       if (!isAbortError(err)) {
@@ -107,7 +118,8 @@ export default function ClientSLAsPage() {
     form.setFieldsValue({
       client_id: record.client_id,
       laboratory_id: record.laboratory_id,
-      service_type: record.service_type,
+      method_type: record.method_type,
+      source_category_id: record.source_category_id,
       commitment_hours: record.commitment_hours,
       max_hours: record.max_hours,
       priority_weight: record.priority_weight,
@@ -191,10 +203,26 @@ export default function ClientSLAsPage() {
       render: (_, record) => record.laboratory?.name || getLabName(record.laboratory_id),
     },
     {
-      title: '服务类型',
-      dataIndex: 'service_type',
-      key: 'service_type',
+      title: '分析/测试方法',
+      dataIndex: 'method_type',
+      key: 'method_type',
       width: 120,
+      render: (value: MethodType | undefined) => value ? (
+        <Tag color={value === MethodTypeEnum.ANALYSIS ? 'blue' : 'green'}>
+          {methodTypeLabels[value]}
+        </Tag>
+      ) : '-',
+    },
+    {
+      title: '任务种类',
+      dataIndex: 'source_category_id',
+      key: 'source_category_id',
+      width: 120,
+      render: (_, record) => record.source_category ? (
+        <Tag color={record.source_category.color || 'default'}>
+          {record.source_category.name}
+        </Tag>
+      ) : '-',
     },
     {
       title: '承诺时间(小时)',
@@ -322,9 +350,29 @@ export default function ClientSLAsPage() {
               options={laboratories.map(l => ({ label: l.name, value: l.id }))}
             />
           </Form.Item>
-          <Form.Item name="service_type" label="服务类型" rules={[{ required: true, message: '请输入服务类型' }]}>
-            <Input placeholder="如：standard, express, priority" />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="method_type" label="分析/测试方法">
+                <Select
+                  placeholder="选择方法类型"
+                  allowClear
+                  options={[
+                    { label: '分析', value: MethodTypeEnum.ANALYSIS },
+                    { label: '可靠性', value: MethodTypeEnum.RELIABILITY },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="source_category_id" label="任务种类">
+                <Select
+                  placeholder="选择来源类别"
+                  allowClear
+                  options={sourceCategories.map(sc => ({ label: sc.name, value: sc.id }))}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="commitment_hours" label="承诺时间(小时)" rules={[{ required: true, message: '请输入承诺时间' }]}>

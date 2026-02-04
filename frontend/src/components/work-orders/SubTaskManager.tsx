@@ -89,24 +89,33 @@ export function SubTaskManager({ workOrder, onTasksChange }: SubTaskManagerProps
     };
   }, [fetchTasks, fetchReferenceData]);
 
-  // Helper functions to get names from IDs
-  const getTechnicianDisplay = (technicianId?: number) => {
-    if (!technicianId) return <span style={{ color: '#999' }}>未分配</span>;
-    const tech = personnel.find(p => p.id === technicianId);
+  // Helper functions to get names from task data
+  const getTechnicianDisplay = (task: WorkOrderTask) => {
+    if (!task.assigned_technician_id) return <span style={{ color: '#999' }}>未分配</span>;
+    if (task.assigned_technician) {
+      const { name, employee_id } = task.assigned_technician;
+      return <Tag color="success">{name} ({employee_id})</Tag>;
+    }
+    // Fallback to local lookup if backend didn't return details
+    const tech = personnel.find(p => p.id === task.assigned_technician_id);
     if (tech) {
       const name = tech.user?.full_name || tech.user?.username || '';
       return <Tag color="success">{name} ({tech.employee_id})</Tag>;
     }
-    return <Tag color="success">ID: {technicianId}</Tag>;
+    return <Tag color="success">ID: {task.assigned_technician_id}</Tag>;
   };
 
-  const getEquipmentDisplay = (equipmentId?: number) => {
-    if (!equipmentId) return '-';
-    const equip = equipment.find(e => e.id === equipmentId);
+  const getEquipmentDisplay = (task: WorkOrderTask) => {
+    if (!task.required_equipment_id) return '-';
+    if (task.required_equipment) {
+      return <Tag color="processing">{task.required_equipment.code}</Tag>;
+    }
+    // Fallback to local lookup if backend didn't return details
+    const equip = equipment.find(e => e.id === task.required_equipment_id);
     if (equip) {
       return <Tag color="processing">{equip.code}</Tag>;
     }
-    return <Tag color="processing">ID: {equipmentId}</Tag>;
+    return <Tag color="processing">ID: {task.required_equipment_id}</Tag>;
   };
 
   const handleAddTask = () => {
@@ -195,7 +204,7 @@ export function SubTaskManager({ workOrder, onTasksChange }: SubTaskManagerProps
       dataIndex: 'required_equipment_id',
       key: 'required_equipment_id',
       width: 120,
-      render: (id: number) => getEquipmentDisplay(id),
+      render: (_: number, record: WorkOrderTask) => getEquipmentDisplay(record),
     },
     {
       title: '所需容量',
@@ -209,7 +218,7 @@ export function SubTaskManager({ workOrder, onTasksChange }: SubTaskManagerProps
       dataIndex: 'assigned_technician_id',
       key: 'assigned_technician_id',
       width: 150,
-      render: (id: number) => getTechnicianDisplay(id),
+      render: (_: number, record: WorkOrderTask) => getTechnicianDisplay(record),
     },
     {
       title: '周期(小时)',
@@ -316,6 +325,7 @@ export function SubTaskManager({ workOrder, onTasksChange }: SubTaskManagerProps
         workOrderId={workOrder.id}
         task={selectedTask}
         laboratoryId={workOrder.laboratory_id}
+        siteId={workOrder.site_id}
         workOrderType={workOrder.work_order_type}
         onSuccess={handleTaskModalSuccess}
         onCancel={() => {

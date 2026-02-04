@@ -21,10 +21,11 @@
 """
 from datetime import datetime, timezone
 from enum import Enum
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Enum as SQLEnum, Numeric
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.models.method import MethodType
 
 
 def utcnow():
@@ -103,6 +104,40 @@ class DisposalMethod(str, Enum):
     STANDARD_DISPOSAL = "standard_disposal"    # 常规处理
 
 
+class NonSapSource(str, Enum):
+    """
+    非SAP来源枚举
+    
+    定义物料补充时的非SAP来源类型。
+    
+    Values:
+        INTERNAL_TRANSFER: 内部转移
+        EMERGENCY_PURCHASE: 紧急采购
+        GIFT_SAMPLE: 赠品/样品
+        INVENTORY_ADJUSTMENT: 库存盘点调整
+        OTHER: 其他
+    """
+    INTERNAL_TRANSFER = "internal_transfer"      # 内部转移
+    EMERGENCY_PURCHASE = "emergency_purchase"    # 紧急采购
+    GIFT_SAMPLE = "gift_sample"                  # 赠品/样品
+    INVENTORY_ADJUSTMENT = "inventory_adjustment" # 库存盘点调整
+    OTHER = "other"                               # 其他
+
+
+class ConsumptionStatus(str, Enum):
+    """
+    材料消耗状态枚举
+    
+    追踪消耗记录的状态，用于区分有效记录和已作废记录。
+    
+    Values:
+        REGISTERED: 已登记 - 正常有效的消耗记录
+        VOIDED: 已作废 - 已作废的消耗记录，库存已补回
+    """
+    REGISTERED = "registered"  # 已登记
+    VOIDED = "voided"          # 已作废
+
+
 class Material(Base):
     """
     材料/样品模型
@@ -165,6 +200,7 @@ class Material(Base):
     
     # 客户/来源信息（样品）
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=True)     # 客户ID
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)   # 产品ID
     client_reference = Column(String(100), nullable=True)                     # 客户参考号
     
     # 数量追踪
@@ -203,9 +239,13 @@ class Material(Base):
     laboratory = relationship("Laboratory", backref="materials")                   # 所属实验室
     site = relationship("Site", backref="materials")                                # 所属站点
     client = relationship("Client", backref="materials")                            # 客户
+    product = relationship("Product", backref="materials")                          # 产品
     current_equipment = relationship("Equipment", backref="current_materials")     # 当前设备
     disposed_by = relationship("User", foreign_keys=[disposed_by_id])              # 处置人
     history = relationship("MaterialHistory", back_populates="material", cascade="all, delete-orphan")  # 历史
+    replenishments = relationship("MaterialReplenishment", back_populates="material", 
+                                  order_by="desc(MaterialReplenishment.created_at)",
+                                  cascade="all, delete-orphan")  # 补充记录
 
     def __repr__(self):
         """返回材料对象的字符串表示"""
@@ -313,6 +353,128 @@ class MaterialHistory(Base):
         return f"<MaterialHistory(material_id={self.material_id}, to_status='{self.to_status}')>"
 
 
+class MaterialReplenishment(Base):
+    """
+    物料补充记录模型
+    
+    追踪材料的补充/入库记录，包括SAP订单和非SAP来源。
+    
+    Attributes:
+        id: 主键
+        material_id: 物料ID
+        received_date: 收货日期
+        quantity_added: 增加数量
+        sap_order_no: SAP订单号（可选）
+        non_sap_source: 非SAP来源（当SAP订单号为空时必填）
+        notes: 备注
+        created_by_id: 创建人ID
+        created_at: 创建时间
+    
+    Relationships:
+        material: 关联物料
+        created_by: 创建人
+    """
+    __tablename__ = "material_replenishments"
+
+    # 主键
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # 关联物料
+    material_id = Column(Integer, ForeignKey("materials.id"), nullable=False, index=True)
+    
+    # 补充信息
+    received_date = Column(DateTime, nullable=False)          # 收货日期
+    quantity_added = Column(Integer, nullable=False)          # 增加数量
+    sap_order_no = Column(String(100), nullable=True)         # SAP订单号
+    non_sap_source = Column(SQLEnum(NonSapSource), nullable=True)  # 非SAP来源
+    notes = Column(Text, nullable=True)                       # 备注
+    
+    # 创建信息
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=utcnow)             # 创建时间
+
+    # 关联关系
+    material = relationship("Material", back_populates="replenishments")  # 关联物料
+    created_by = relationship("User", foreign_keys=[created_by_id])       # 创建人
+
+    def __repr__(self):
+        """返回物料补充记录对象的字符串表示"""
+        return f"<MaterialReplenishment(id={self.id}, material_id={self.material_id}, quantity={self.quantity_added})>"
+
+
+class MaterialConsumption(Base):
+    """
+    材料消耗记录模型
+    
+    追踪子任务中材料的消耗情况，支持成本记录和作废恢复。
+    消耗记录创建后不可修改或删除，只能通过作废来纠正错误。
+    
+    Attributes:
+        id: 主键
+        material_id: 物料ID
+        task_id: 子任务ID
+        quantity_consumed: 消耗数量
+        unit_price: 单价（可选）
+        total_cost: 总成本（可选）
+        status: 消耗状态（已登记/已作废）
+        notes: 备注
+        consumed_at: 消耗时间
+        created_by_id: 创建人ID
+        voided_at: 作废时间
+        voided_by_id: 作废人ID
+        void_reason: 作废原因
+        replenishment_id: 作废后关联的补充记录ID
+    
+    Relationships:
+        material: 关联物料
+        task: 关联子任务
+        created_by: 创建人
+        voided_by: 作废人
+        replenishment: 作废后关联的补充记录
+    """
+    __tablename__ = "material_consumptions"
+
+    # 主键
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # 关联信息
+    material_id = Column(Integer, ForeignKey("materials.id"), nullable=False, index=True)
+    task_id = Column(Integer, ForeignKey("work_order_tasks.id"), nullable=False, index=True)
+    
+    # 消耗信息
+    quantity_consumed = Column(Integer, nullable=False)           # 消耗数量
+    unit_price = Column(Numeric(10, 2), nullable=True)            # 单价
+    total_cost = Column(Numeric(12, 2), nullable=True)            # 总成本
+    
+    # 状态
+    status = Column(SQLEnum(ConsumptionStatus), default=ConsumptionStatus.REGISTERED, 
+                    nullable=False, index=True)
+    
+    # 备注
+    notes = Column(Text, nullable=True)
+    
+    # 消耗时间和创建人
+    consumed_at = Column(DateTime, default=utcnow)                # 消耗时间
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # 作废信息
+    voided_at = Column(DateTime, nullable=True)                   # 作废时间
+    voided_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # 作废人
+    void_reason = Column(Text, nullable=True)                     # 作废原因
+    replenishment_id = Column(Integer, ForeignKey("material_replenishments.id"), nullable=True)  # 关联补充记录
+
+    # 关联关系
+    material = relationship("Material", backref="consumptions")   # 关联物料
+    task = relationship("WorkOrderTask", backref="consumptions")  # 关联子任务
+    created_by = relationship("User", foreign_keys=[created_by_id])  # 创建人
+    voided_by = relationship("User", foreign_keys=[voided_by_id])    # 作废人
+    replenishment = relationship("MaterialReplenishment", backref="voided_consumption")  # 关联补充记录
+
+    def __repr__(self):
+        """返回材料消耗记录对象的字符串表示"""
+        return f"<MaterialConsumption(id={self.id}, material_id={self.material_id}, quantity={self.quantity_consumed}, status='{self.status}')>"
+
+
 class Client(Base):
     """
     客户模型
@@ -368,6 +530,7 @@ class Client(Base):
     
     # 关联关系
     sla_configs = relationship("ClientSLA", back_populates="client", cascade="all, delete-orphan")
+    products = relationship("Product", back_populates="client", cascade="all, delete-orphan")
 
     def __repr__(self):
         """返回客户对象的字符串表示"""
@@ -384,7 +547,8 @@ class ClientSLA(Base):
         id: 主键
         client_id: 客户ID
         laboratory_id: 实验室ID（null=适用所有实验室）
-        service_type: 服务类型（standard/express/priority）
+        method_type: 分析/测试方法类型（analysis/reliability）
+        source_category_id: 来源类别ID
         commitment_hours: 承诺完成时间（小时）
         max_hours: 最大允许时间（小时）
         priority_weight: 优先级权重
@@ -396,6 +560,7 @@ class ClientSLA(Base):
     Relationships:
         client: 关联客户
         laboratory: 关联实验室
+        source_category: 关联来源类别
     """
     __tablename__ = "client_slas"
 
@@ -406,8 +571,9 @@ class ClientSLA(Base):
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)           # 客户ID
     laboratory_id = Column(Integer, ForeignKey("laboratories.id"), nullable=True)   # 实验室ID（null=所有实验室）
     
-    # 服务类型
-    service_type = Column(String(100), nullable=False)  # 如 "standard"/"express"/"priority"
+    # 服务类型 - 拆分为两个字段
+    method_type = Column(SQLEnum(MethodType), nullable=True, index=True)  # 分析/测试方法类型
+    source_category_id = Column(Integer, ForeignKey("testing_source_categories.id"), nullable=True)  # 来源类别ID
     
     # SLA参数
     commitment_hours = Column(Integer, nullable=False)  # 承诺完成时间（小时）
@@ -429,10 +595,11 @@ class ClientSLA(Base):
     # 关联关系
     client = relationship("Client", back_populates="sla_configs")  # 关联客户
     laboratory = relationship("Laboratory", backref="client_slas")  # 关联实验室
+    source_category = relationship("TestingSourceCategory", backref="client_slas")  # 关联来源类别
 
     def __repr__(self):
         """返回客户SLA配置对象的字符串表示"""
-        return f"<ClientSLA(id={self.id}, client_id={self.client_id}, service_type='{self.service_type}')>"
+        return f"<ClientSLA(id={self.id}, client_id={self.client_id}, method_type='{self.method_type}')>"
 
 
 class TestingSourceCategory(Base):

@@ -4,6 +4,7 @@ import { equipmentService } from '../../services/equipmentService';
 import { methodService } from '../../services/methodService';
 import type { WorkOrderTask, TaskFormData, TaskUpdateData, Equipment, Method, MethodType, TaskStatus } from '../../types';
 import { Modal, Form, Input, Select, InputNumber, Alert, Row, Col, Button, App } from 'antd';
+import { ConsumptionEditor } from './ConsumptionEditor';
 
 const { TextArea } = Input;
 
@@ -12,6 +13,7 @@ interface TaskModalProps {
   workOrderId: number;
   task: WorkOrderTask | null;
   laboratoryId?: number;
+  siteId?: number;
   workOrderType?: 'failure_analysis' | 'reliability_test';
   onSuccess: () => void;
   onCancel: () => void;
@@ -43,6 +45,7 @@ export function TaskModal({
   workOrderId,
   task,
   laboratoryId,
+  siteId,
   workOrderType,
   onSuccess,
   onCancel,
@@ -61,8 +64,10 @@ export function TaskModal({
 
   useEffect(() => {
     if (visible) {
-      // Load equipment for the dropdown (filter by laboratory if provided)
-      const equipParams = laboratoryId ? { laboratory_id: laboratoryId, page_size: 100 } : { page_size: 100 };
+      // Load equipment for the dropdown (filter by site and/or laboratory)
+      const equipParams: { laboratory_id?: number; site_id?: number; page_size: number } = { page_size: 100 };
+      if (siteId) equipParams.site_id = siteId;
+      if (laboratoryId) equipParams.laboratory_id = laboratoryId;
       equipmentService.getEquipment(equipParams).then((res) => {
         setEquipment(res.items.filter((eq) => eq.is_active));
       });
@@ -97,7 +102,7 @@ export function TaskModal({
         setCapacityInfo(null);
       }
     }
-  }, [visible, task, laboratoryId, workOrderType, form]);
+  }, [visible, task, laboratoryId, siteId, workOrderType, form]);
 
   const handleMethodChange = (value: number) => {
     if (value) {
@@ -244,11 +249,11 @@ export function TaskModal({
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item name="standard_cycle_hours" label="标准周期(小时)">
+            <Form.Item name="standard_cycle_hours" label="预计周期(小时)">
               <InputNumber
                 min={0.1}
                 step={0.5}
-                placeholder="标准周期"
+                placeholder="预计周期"
                 disabled={!!task}
                 style={{ width: '100%' }}
               />
@@ -320,6 +325,15 @@ export function TaskModal({
           </>
         )}
       </Form>
+
+      {/* Material Consumption Editor - only show in edit mode */}
+      {task && (
+        <ConsumptionEditor
+          workOrderId={workOrderId}
+          taskId={task.id}
+          taskNumber={task.task_number}
+        />
+      )}
     </Modal>
   );
 }

@@ -232,12 +232,67 @@ export const EquipmentCategory = {
 } as const;
 export type EquipmentCategory = typeof EquipmentCategory[keyof typeof EquipmentCategory];
 
+// New database-backed equipment category and name types (设备类别和设备名 - 数据库管理)
+export interface EquipmentCategoryRecord {
+  id: number;
+  name: string;
+  code: string;
+  description?: string;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EquipmentCategoryWithNames extends EquipmentCategoryRecord {
+  equipment_names: EquipmentNameRecord[];
+}
+
+export interface EquipmentNameRecord {
+  id: number;
+  category_id: number;
+  name: string;
+  description?: string;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EquipmentNameWithCategory extends EquipmentNameRecord {
+  category?: EquipmentCategoryRecord;
+}
+
+// Equipment category form types
+export interface EquipmentCategoryFormData {
+  name: string;
+  code: string;
+  description?: string;
+  display_order?: number;
+  is_active?: boolean;
+}
+
+export interface EquipmentCategoryUpdateData extends Partial<EquipmentCategoryFormData> {}
+
+// Equipment name form types
+export interface EquipmentNameFormData {
+  category_id: number;
+  name: string;
+  description?: string;
+  display_order?: number;
+  is_active?: boolean;
+}
+
+export interface EquipmentNameUpdateData extends Partial<Omit<EquipmentNameFormData, 'category_id'>> {}
+
 export interface Equipment {
   id: number;
   name: string;
   code: string;
   equipment_type: EquipmentType;
   category?: EquipmentCategory;
+  category_id?: number;
+  equipment_name_id?: number;
   laboratory_id: number;
   site_id: number;
   model?: string;
@@ -261,6 +316,8 @@ export interface Equipment {
   updated_at: string;
   laboratory?: Laboratory;
   site?: Site;
+  equipment_category?: EquipmentCategoryRecord;
+  equipment_name?: EquipmentNameRecord;
 }
 
 // Equipment form types
@@ -269,6 +326,8 @@ export interface EquipmentFormData {
   code: string;
   equipment_type: EquipmentType;
   category?: EquipmentCategory;
+  category_id?: number;
+  equipment_name_id?: number;
   laboratory_id: number;
   site_id: number;
   model?: string;
@@ -300,6 +359,8 @@ export interface EquipmentFilters {
   site_id?: number;
   equipment_type?: EquipmentType;
   category?: EquipmentCategory;
+  category_id?: number;
+  equipment_name_id?: number;
   status?: EquipmentStatus;
   search?: string;
 }
@@ -453,6 +514,101 @@ export interface MaterialFilters {
   overdue_only?: boolean;
 }
 
+// Non-SAP source types for material replenishment
+export const NonSapSource = {
+  INTERNAL_TRANSFER: 'internal_transfer',
+  EMERGENCY_PURCHASE: 'emergency_purchase',
+  GIFT_SAMPLE: 'gift_sample',
+  INVENTORY_ADJUSTMENT: 'inventory_adjustment',
+  OTHER: 'other',
+} as const;
+export type NonSapSource = typeof NonSapSource[keyof typeof NonSapSource];
+
+// Replenishment types
+export interface Replenishment {
+  id: number;
+  material_id: number;
+  received_date: string;
+  quantity_added: number;
+  sap_order_no?: string;
+  non_sap_source?: NonSapSource;
+  notes?: string;
+  created_by_id: number;
+  created_at: string;
+  created_by?: {
+    id: number;
+    username: string;
+    full_name?: string;
+  };
+}
+
+export interface ReplenishmentFormData {
+  received_date: string;
+  quantity_added: number;
+  sap_order_no?: string;
+  non_sap_source?: NonSapSource;
+  notes?: string;
+}
+
+// Consumption types (材料消耗)
+export const ConsumptionStatus = {
+  REGISTERED: 'registered',   // 已登记
+  VOIDED: 'voided',           // 已作废
+} as const;
+export type ConsumptionStatus = typeof ConsumptionStatus[keyof typeof ConsumptionStatus];
+
+export interface MaterialBrief {
+  id: number;
+  material_code: string;
+  name: string;
+  material_type: MaterialType;
+  quantity: number;
+  unit: string;
+}
+
+export interface Consumption {
+  id: number;
+  material_id: number;
+  task_id: number;
+  quantity_consumed: number;
+  unit_price?: number;
+  total_cost?: number;
+  status: ConsumptionStatus;
+  notes?: string;
+  consumed_at: string;
+  created_by_id: number;
+  voided_at?: string;
+  voided_by_id?: number;
+  void_reason?: string;
+  replenishment_id?: number;
+  material?: MaterialBrief;
+  created_by?: {
+    id: number;
+    username: string;
+    full_name?: string;
+  };
+  voided_by?: {
+    id: number;
+    username: string;
+    full_name?: string;
+  };
+}
+
+export interface ConsumptionCreateItem {
+  material_id: number;
+  quantity_consumed: number;
+  unit_price?: number;
+  notes?: string;
+}
+
+export interface ConsumptionBatchCreate {
+  consumptions: ConsumptionCreateItem[];
+}
+
+export interface ConsumptionVoid {
+  void_reason: string;
+}
+
 // Work Order types
 export const WorkOrderType = {
   FAILURE_ANALYSIS: 'failure_analysis',
@@ -491,6 +647,8 @@ export interface WorkOrder {
   laboratory_id: number;
   site_id: number;
   client_id?: number;
+  product_id?: number;
+  material_ids?: number[];
   testing_source?: string;
   sla_deadline?: string;
   priority_score: number;
@@ -528,7 +686,9 @@ export interface WorkOrderTask {
   method_id?: number;
   method?: MethodBrief;
   assigned_technician_id?: number;
+  assigned_technician?: PersonnelBrief;
   required_equipment_id?: number;
+  required_equipment?: EquipmentBrief;
   scheduled_equipment_id?: number;
   required_capacity?: number;
   status: TaskStatus;
@@ -551,6 +711,8 @@ export interface WorkOrderFormData {
   laboratory_id: number;
   site_id: number;
   client_id?: number;
+  product_id?: number;
+  material_ids?: number[];
   testing_source?: string;
   sla_deadline?: string;
   standard_cycle_hours?: number;
@@ -561,6 +723,8 @@ export interface WorkOrderUpdateData {
   title?: string;
   description?: string;
   client_id?: number;
+  product_id?: number;
+  material_ids?: number[];
   testing_source?: string;
   sla_deadline?: string;
   status?: WorkOrderStatus;
@@ -570,6 +734,7 @@ export interface WorkOrderUpdateData {
 
 // Work Order filter types
 export interface WorkOrderFilters {
+  work_order_id?: number;
   laboratory_id?: number;
   client_id?: number;
   work_order_type?: WorkOrderType;
@@ -998,11 +1163,19 @@ export interface MethodSkillRequirementFormData {
 }
 
 // Client SLA types
+export interface SourceCategoryBrief {
+  id: number;
+  name: string;
+  code: string;
+  color?: string;
+}
+
 export interface ClientSLA {
   id: number;
   client_id: number;
   laboratory_id?: number;
-  service_type: string;
+  method_type?: MethodType;
+  source_category_id?: number;
   commitment_hours: number;
   max_hours?: number;
   priority_weight: number;
@@ -1012,12 +1185,14 @@ export interface ClientSLA {
   updated_at: string;
   client?: ClientBrief;
   laboratory?: LaboratoryBrief;
+  source_category?: SourceCategoryBrief;
 }
 
 export interface ClientSLAFormData {
   client_id: number;
   laboratory_id?: number;
-  service_type: string;
+  method_type?: MethodType;
+  source_category_id?: number;
   commitment_hours: number;
   max_hours?: number;
   priority_weight?: number;
@@ -1026,7 +1201,8 @@ export interface ClientSLAFormData {
 
 export interface ClientSLAUpdateData {
   laboratory_id?: number;
-  service_type?: string;
+  method_type?: MethodType;
+  source_category_id?: number;
   commitment_hours?: number;
   max_hours?: number;
   priority_weight?: number;
@@ -1037,7 +1213,8 @@ export interface ClientSLAUpdateData {
 export interface ClientSLAFilters {
   client_id?: number;
   laboratory_id?: number;
-  service_type?: string;
+  method_type?: MethodType;
+  source_category_id?: number;
   is_active?: boolean;
 }
 
@@ -1087,4 +1264,159 @@ export interface ClientBrief {
   id: number;
   name: string;
   code: string;
+}
+
+// ============================================================================
+// Product Management Types (产品管理)
+// ============================================================================
+
+// Brief types for nested product responses
+export interface PackageFormOptionBrief {
+  id: number;
+  name: string;
+  code: string;
+}
+
+export interface PackageTypeOptionBrief {
+  id: number;
+  name: string;
+  code: string;
+}
+
+export interface ApplicationScenarioBrief {
+  id: number;
+  name: string;
+  code: string;
+  color?: string;
+}
+
+// Package Form Option (封装形式)
+export interface PackageFormOption {
+  id: number;
+  name: string;
+  code: string;
+  display_order: number;
+  description?: string;
+  is_active: boolean;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PackageFormOptionFormData {
+  name: string;
+  code: string;
+  display_order?: number;
+  description?: string;
+  is_default?: boolean;
+}
+
+export interface PackageFormOptionUpdateData extends Partial<PackageFormOptionFormData> {
+  is_active?: boolean;
+}
+
+// Package Type Option (封装产品类型)
+export interface PackageTypeOption {
+  id: number;
+  name: string;
+  code: string;
+  display_order: number;
+  description?: string;
+  is_active: boolean;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PackageTypeOptionFormData {
+  name: string;
+  code: string;
+  display_order?: number;
+  description?: string;
+  is_default?: boolean;
+}
+
+export interface PackageTypeOptionUpdateData extends Partial<PackageTypeOptionFormData> {
+  is_active?: boolean;
+}
+
+// Application Scenario (应用场景)
+export interface ApplicationScenario {
+  id: number;
+  name: string;
+  code: string;
+  display_order: number;
+  description?: string;
+  color?: string;
+  is_active: boolean;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApplicationScenarioFormData {
+  name: string;
+  code: string;
+  display_order?: number;
+  description?: string;
+  color?: string;
+  is_default?: boolean;
+}
+
+export interface ApplicationScenarioUpdateData extends Partial<ApplicationScenarioFormData> {
+  is_active?: boolean;
+}
+
+// Product (产品)
+export interface Product {
+  id: number;
+  name: string;
+  code?: string;
+  client_id: number;
+  package_form_id?: number;
+  package_type_id?: number;
+  custom_info?: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  client?: ClientBrief;
+  package_form?: PackageFormOptionBrief;
+  package_type?: PackageTypeOptionBrief;
+  scenarios: ApplicationScenarioBrief[];
+}
+
+export interface ProductFormData {
+  name: string;
+  code?: string;
+  client_id: number;
+  package_form_id?: number;
+  package_type_id?: number;
+  custom_info?: string[];
+  scenario_ids?: number[];
+}
+
+export interface ProductUpdateData extends Partial<ProductFormData> {
+  is_active?: boolean;
+}
+
+export interface ProductFilters {
+  client_id?: number;
+  package_form_id?: number;
+  package_type_id?: number;
+  scenario_id?: number;
+  search?: string;
+  is_active?: boolean;
+}
+
+// Product Configuration (产品配置选项)
+export interface ProductConfig {
+  package_forms: PackageFormOption[];
+  package_types: PackageTypeOption[];
+  application_scenarios: ApplicationScenario[];
+}
+
+// Config option filters
+export interface ConfigOptionFilters {
+  search?: string;
+  is_active?: boolean;
 }

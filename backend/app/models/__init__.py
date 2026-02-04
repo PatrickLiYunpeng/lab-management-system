@@ -8,13 +8,15 @@ from app.models.laboratory import Laboratory, LaboratoryType
 from app.models.personnel import Personnel, PersonnelStatus, StaffBorrowRequest
 from app.models.skill import Skill, PersonnelSkill, ProficiencyLevel, SkillCategory
 from app.models.equipment import Equipment, EquipmentType, EquipmentStatus, EquipmentCategory, EquipmentSchedule, EquipmentSkillRequirement
-from app.models.material import Material, MaterialType, MaterialStatus, DisposalMethod, MaterialHistory, Client, ClientSLA, TestingSourceCategory
+from app.models.equipment_category import EquipmentCategoryModel, EquipmentNameModel
+from app.models.material import Material, MaterialType, MaterialStatus, DisposalMethod, MaterialHistory, MaterialReplenishment, NonSapSource, ConsumptionStatus, MaterialConsumption, Client, ClientSLA, TestingSourceCategory
 from app.models.work_order import WorkOrder, WorkOrderType, WorkOrderStatus, WorkOrderTask, TaskStatus, StandardCycleTime
 from app.models.shift import Shift, PersonnelShift
 from app.models.handover import TaskHandover, HandoverNote, HandoverStatus, HandoverPriority
 from app.models.method import Method, MethodType, MethodSkillRequirement
 from app.models.audit_log import AuditLog, AuditAction
 from app.models.permission import RolePermission, PermissionChangeLog, PermissionCode
+from app.models.product import Product, PackageFormOption, PackageTypeOption, ApplicationScenario, ProductApplicationScenario
 
 __all__ = [
     # User
@@ -41,12 +43,18 @@ __all__ = [
     "EquipmentCategory",
     "EquipmentSchedule",
     "EquipmentSkillRequirement",
+    "EquipmentCategoryModel",
+    "EquipmentNameModel",
     # Material
     "Material",
     "MaterialType",
     "MaterialStatus",
     "DisposalMethod",
     "MaterialHistory",
+    "MaterialReplenishment",
+    "NonSapSource",
+    "ConsumptionStatus",
+    "MaterialConsumption",
     "Client",
     "ClientSLA",
     "TestingSourceCategory",
@@ -76,4 +84,10 @@ __all__ = [
     "RolePermission",
     "PermissionChangeLog",
     "PermissionCode",
+    # Product
+    "Product",
+    "PackageFormOption",
+    "PackageTypeOption",
+    "ApplicationScenario",
+    "ProductApplicationScenario",
 ]

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, UnorderedListOutlined, CalendarOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, UnorderedListOutlined, CalendarOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { Table, Button, Input, Select, Tag, Popconfirm, App, Space, Tabs } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { equipmentService } from '../services/equipmentService';
@@ -8,6 +8,7 @@ import { laboratoryService } from '../services/laboratoryService';
 import { isAbortError } from '../services/api';
 import { EquipmentModal } from '../components/equipment/EquipmentModal';
 import { EquipmentScheduler } from '../components/equipment/EquipmentScheduler';
+import { EquipmentTypeManager } from '../components/equipment/EquipmentTypeManager';
 import { StatusTag } from '../components/common/StatusTag';
 import type { Equipment, Site, Laboratory, EquipmentType, EquipmentStatus, EquipmentCategory } from '../types';
 
@@ -434,6 +435,16 @@ export default function EquipmentPage() {
         </span>
       ),
       children: <EquipmentScheduler />,
+    },
+    {
+      key: 'type-management',
+      label: (
+        <span>
+          <AppstoreOutlined />
+          设备类型管理
+        </span>
+      ),
+      children: <EquipmentTypeManager />,
     },
   ];
 

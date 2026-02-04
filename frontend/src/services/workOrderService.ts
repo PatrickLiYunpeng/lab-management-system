@@ -9,6 +9,10 @@ import type {
   TaskUpdateData,
   EligibleTechniciansResponse,
   PaginatedResponse,
+  Consumption,
+  ConsumptionBatchCreate,
+  ConsumptionVoid,
+  ConsumptionStatus,
 } from '../types';
 
 interface GetWorkOrdersParams extends WorkOrderFilters {
@@ -82,6 +86,70 @@ export const workOrderService = {
       `/work-orders/${workOrderId}/tasks/${taskId}/eligible-technicians`,
       { params }
     );
+    return response.data;
+  },
+
+  // 获取可选的样品列表（排除已返还、遗失、已处置状态）
+  async getAvailableMaterials(params: { search?: string; site_id?: number; client_id?: number; product_id?: number; page?: number; page_size?: number } = {}): Promise<{
+    items: Array<{
+      id: number;
+      material_code: string;
+      name: string;
+      status: string;
+      material_type: string;
+      storage_location: string;
+      quantity: number;
+      unit: string;
+      client_id: number | null;
+      product_id: number | null;
+    }>;
+    total: number;
+    page: number;
+    page_size: number;
+  }> {
+    const response = await api.get('/work-orders/available-materials/list', { params });
+    return response.data;
+  },
+
+  // ========== Material Consumption endpoints (材料消耗) ==========
+
+  /**
+   * 批量创建任务材料消耗记录
+   * 仅支持非样品类型材料
+   */
+  async createConsumptions(
+    workOrderId: number,
+    taskId: number,
+    data: ConsumptionBatchCreate
+  ): Promise<Consumption[]> {
+    const response = await api.post<Consumption[]>(
+      `/work-orders/${workOrderId}/tasks/${taskId}/consumptions`,
+      data
+    );
+    return response.data;
+  },
+
+  /**
+   * 查询任务的材料消耗记录列表
+   */
+  async getConsumptions(
+    workOrderId: number,
+    taskId: number,
+    params: { page?: number; page_size?: number; status?: ConsumptionStatus } = {}
+  ): Promise<PaginatedResponse<Consumption>> {
+    const response = await api.get<PaginatedResponse<Consumption>>(
+      `/work-orders/${workOrderId}/tasks/${taskId}/consumptions`,
+      { params }
+    );
+    return response.data;
+  },
+
+  /**
+   * 作废材料消耗记录
+   * 自动创建补充记录恢复库存
+   */
+  async voidConsumption(consumptionId: number, data: ConsumptionVoid): Promise<Consumption> {
+    const response = await api.post<Consumption>(`/consumptions/${consumptionId}/void`, data);
     return response.data;
   },
 };

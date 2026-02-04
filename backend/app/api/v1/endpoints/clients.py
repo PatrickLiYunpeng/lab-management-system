@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.models.material import Client, ClientSLA, TestingSourceCategory
 from app.models.laboratory import Laboratory
+from app.models.method import MethodType
 from app.schemas.material import (
     ClientSLACreate, ClientSLAUpdate, ClientSLAResponse, ClientSLAListResponse,
     TestingSourceCategoryCreate, TestingSourceCategoryUpdate, 
@@ -27,7 +28,8 @@ def list_client_slas(
     page_size: int = Query(20, ge=1, le=100),
     client_id: Optional[int] = None,
     laboratory_id: Optional[int] = None,
-    service_type: Optional[str] = None,
+    method_type: Optional[MethodType] = None,
+    source_category_id: Optional[int] = None,
     is_active: Optional[bool] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -35,21 +37,24 @@ def list_client_slas(
     """List all client SLA configurations with filtering."""
     query = db.query(ClientSLA).options(
         joinedload(ClientSLA.client),
-        joinedload(ClientSLA.laboratory)
+        joinedload(ClientSLA.laboratory),
+        joinedload(ClientSLA.source_category)
     )
     
     if client_id:
         query = query.filter(ClientSLA.client_id == client_id)
     if laboratory_id:
         query = query.filter(ClientSLA.laboratory_id == laboratory_id)
-    if service_type:
-        query = query.filter(ClientSLA.service_type.ilike(f"%{service_type}%"))
+    if method_type:
+        query = query.filter(ClientSLA.method_type == method_type)
+    if source_category_id:
+        query = query.filter(ClientSLA.source_category_id == source_category_id)
     if is_active is not None:
         query = query.filter(ClientSLA.is_active == is_active)
     
     total = query.count()
     offset = (page - 1) * page_size
-    items = query.order_by(ClientSLA.client_id, ClientSLA.service_type).offset(offset).limit(page_size).all()
+    items = query.order_by(ClientSLA.client_id, ClientSLA.method_type).offset(offset).limit(page_size).all()
     
     return ClientSLAListResponse(
         items=[ClientSLAResponse.model_validate(item) for item in items],
@@ -68,7 +73,8 @@ def get_client_sla(
     """Get a specific client SLA by ID."""
     sla = db.query(ClientSLA).options(
         joinedload(ClientSLA.client),
-        joinedload(ClientSLA.laboratory)
+        joinedload(ClientSLA.laboratory),
+        joinedload(ClientSLA.source_category)
     ).filter(ClientSLA.id == sla_id).first()
     
     if not sla:
@@ -94,16 +100,25 @@ def create_client_sla(
         if not lab:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Laboratory not found")
     
-    # Check for duplicate (same client, lab, service_type)
+    # Verify source category exists (if specified)
+    if data.source_category_id:
+        source_cat = db.query(TestingSourceCategory).filter(
+            TestingSourceCategory.id == data.source_category_id
+        ).first()
+        if not source_cat:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Source category not found")
+    
+    # Check for duplicate (same client, lab, method_type, source_category)
     existing = db.query(ClientSLA).filter(
         ClientSLA.client_id == data.client_id,
         ClientSLA.laboratory_id == data.laboratory_id,
-        ClientSLA.service_type == data.service_type
+        ClientSLA.method_type == data.method_type,
+        ClientSLA.source_category_id == data.source_category_id
     ).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="SLA configuration already exists for this client/laboratory/service type combination"
+            detail="SLA configuration already exists for this client/laboratory/method type/source category combination"
         )
     
     sla = ClientSLA(**data.model_dump())
@@ -114,7 +129,8 @@ def create_client_sla(
     # Reload with relationships
     sla = db.query(ClientSLA).options(
         joinedload(ClientSLA.client),
-        joinedload(ClientSLA.laboratory)
+        joinedload(ClientSLA.laboratory),
+        joinedload(ClientSLA.source_category)
     ).filter(ClientSLA.id == sla.id).first()
     
     return ClientSLAResponse.model_validate(sla)
@@ -140,6 +156,14 @@ def update_client_sla(
         if not lab:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Laboratory not found")
     
+    # Verify source category if being updated
+    if "source_category_id" in update_data and update_data["source_category_id"]:
+        source_cat = db.query(TestingSourceCategory).filter(
+            TestingSourceCategory.id == update_data["source_category_id"]
+        ).first()
+        if not source_cat:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Source category not found")
+    
     for field, value in update_data.items():
         setattr(sla, field, value)
     
@@ -149,7 +173,8 @@ def update_client_sla(
     # Reload with relationships
     sla = db.query(ClientSLA).options(
         joinedload(ClientSLA.client),
-        joinedload(ClientSLA.laboratory)
+        joinedload(ClientSLA.laboratory),
+        joinedload(ClientSLA.source_category)
     ).filter(ClientSLA.id == sla.id).first()
     
     return ClientSLAResponse.model_validate(sla)

@@ -12,13 +12,14 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
 import { Card, Button, Select, Spin, Progress, Alert, Tooltip, DatePicker, Space, Row, Col, Segmented, Typography, Tabs, Empty } from 'antd';
 import { dashboardService } from '../services/dashboardService';
 import { siteService } from '../services/siteService';
 import { laboratoryService } from '../services/laboratoryService';
 import { isAbortError } from '../services/api';
-import type { EquipmentDashboardResponse, EquipmentCategoryStats, GanttDataResponse, GanttEquipment } from '../services/dashboardService';
+import type { EquipmentDashboardResponse, EquipmentCategoryStats, GanttDataResponse, GanttEquipment, GanttSchedule } from '../services/dashboardService';
 import type { Site, Laboratory } from '../types';
 
 const { Text, Title } = Typography;
@@ -28,6 +29,8 @@ type Language = 'zh' | 'en';
 const translations = {
   zh: {
     title: '设备仪表板',
+    overview: '概览',
+    scheduling: '调度甘特图',
     totalEquipment: '设备总数',
     availableEquipment: '可用设备',
     inUseEquipment: '使用中',
@@ -69,6 +72,8 @@ const translations = {
   },
   en: {
     title: 'Equipment Dashboard',
+    overview: 'Overview',
+    scheduling: 'Scheduling Gantt',
     totalEquipment: 'Total Equipment',
     availableEquipment: 'Available',
     inUseEquipment: 'In Use',
@@ -137,6 +142,23 @@ const SCHEDULE_STATUS_COLORS: Record<string, string> = {
   cancelled: '#ff4d4f',
 };
 
+// 优先级颜色定义（按priority_level: 1=最高优先级，5=最低优先级）
+const PRIORITY_COLORS: Record<number, string> = {
+  1: '#ef4444',  // 紧急 - 红色
+  2: '#f97316',  // 高优先级 - 橙色
+  3: '#3b82f6',  // 正常 - 蓝色
+  4: '#22c55e',  // 低优先级 - 绿色
+  5: '#6b7280',  // 常规 - 灰色
+};
+
+const PRIORITY_LABELS: Record<number, { zh: string; en: string }> = {
+  1: { zh: '紧急', en: 'Urgent' },
+  2: { zh: '高', en: 'High' },
+  3: { zh: '正常', en: 'Normal' },
+  4: { zh: '低', en: 'Low' },
+  5: { zh: '常规', en: 'Routine' },
+};
+
 interface GanttChartContentProps {
   equipment: GanttEquipment[];
   startDate: Dayjs;
@@ -144,9 +166,10 @@ interface GanttChartContentProps {
   loading: boolean;
   language: Language;
   t: typeof translations['zh'];
+  onScheduleClick?: (schedule: GanttSchedule) => void;
 }
 
-function GanttChartContent({ equipment, startDate, endDate, loading, language, t }: GanttChartContentProps) {
+function GanttChartContent({ equipment, startDate, endDate, loading, language, t, onScheduleClick }: GanttChartContentProps) {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
@@ -237,7 +260,9 @@ function GanttChartContent({ equipment, startDate, endDate, loading, language, t
 
               if (width <= 0) return null;
 
-              const barColor = SCHEDULE_STATUS_COLORS[schedule.status] || '#1677ff';
+              // 使用优先级颜色（priority_level 1-5，默认为3）
+              const priorityLevel = schedule.priority_level || 3;
+              const barColor = PRIORITY_COLORS[priorityLevel] || PRIORITY_COLORS[3];
 
               return (
                 <Tooltip
@@ -246,17 +271,19 @@ function GanttChartContent({ equipment, startDate, endDate, loading, language, t
                     <div>
                       <div>{schedule.title}</div>
                       <div>{scheduleStart.format('MM-DD HH:mm')} - {scheduleEnd.format('MM-DD HH:mm')}</div>
+                      <div>{language === 'zh' ? '优先级' : 'Priority'}: {PRIORITY_LABELS[priorityLevel]?.[language] || PRIORITY_LABELS[3][language]}</div>
                       {schedule.operator_name && <div>{t.operator}: {schedule.operator_name}</div>}
                     </div>
                   }
                 >
                   <div
+                    onClick={() => onScheduleClick?.(schedule)}
                     style={{
                       position: 'absolute',
                       height: 20,
                       top: 4,
                       borderRadius: 4,
-                      cursor: 'pointer',
+                      cursor: schedule.work_order_id ? 'pointer' : 'default',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -279,16 +306,12 @@ function GanttChartContent({ equipment, startDate, endDate, loading, language, t
       ))}
 
       <div style={{ marginTop: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        {Object.entries(SCHEDULE_STATUS_COLORS).map(([status, color]) => (
-          <div key={status} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>{language === 'zh' ? '优先级:' : 'Priority:'}</Text>
+        {Object.entries(PRIORITY_COLORS).map(([level, color]) => (
+          <div key={level} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <div style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: color }} />
             <Text type="secondary" style={{ fontSize: 12 }}>
-              {language === 'zh' ? 
-                (status === 'scheduled' ? '已安排' : 
-                 status === 'in_progress' ? '进行中' : 
-                 status === 'completed' ? '已完成' : '已取消') :
-                status.replace('_', ' ')
-              }
+              {PRIORITY_LABELS[Number(level)]?.[language] || level}
             </Text>
           </div>
         ))}
@@ -298,7 +321,9 @@ function GanttChartContent({ equipment, startDate, endDate, loading, language, t
 }
 
 export function EquipmentDashboard() {
+  const navigate = useNavigate();
   const [language, setLanguage] = useState<Language>('zh');
+  const [activeTab, setActiveTab] = useState<'overview' | 'scheduling'>('overview');
   const [siteId, setSiteId] = useState<number | undefined>();
   const [laboratoryId, setLaboratoryId] = useState<number | undefined>();
   const [sites, setSites] = useState<Site[]>([]);
@@ -318,6 +343,12 @@ export function EquipmentDashboard() {
   const ganttAbortControllerRef = useRef<AbortController | null>(null);
 
   const t = translations[language];
+
+  const handleScheduleClick = useCallback((schedule: GanttSchedule) => {
+    if (schedule.work_order_id) {
+      navigate(`/work-orders?expand=${schedule.work_order_id}`);
+    }
+  }, [navigate]);
 
   useEffect(() => {
     const loadReferenceData = async () => {
@@ -453,9 +484,212 @@ export function EquipmentDashboard() {
         loading={ganttLoading}
         language={language}
         t={t}
+        onScheduleClick={handleScheduleClick}
       />
     ),
   }));
+
+  // 概览内容
+  const overviewContent = data && (
+    <>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card size="small">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <ToolOutlined style={{ fontSize: 32, color: '#1677ff' }} />
+              <div>
+                <Text type="secondary" style={{ fontSize: 14 }}>{t.totalEquipment}</Text>
+                <div style={{ fontSize: 24, fontWeight: 600 }}>{data.total_equipment}</div>
+              </div>
+            </div>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card size="small">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <CheckCircleOutlined style={{ fontSize: 32, color: '#52c41a' }} />
+              <div>
+                <Text type="secondary" style={{ fontSize: 14 }}>{t.availableEquipment}</Text>
+                <div style={{ fontSize: 24, fontWeight: 600 }}>{data.available_equipment}</div>
+              </div>
+            </div>
+            <Progress
+              percent={data.total_equipment ? Math.round((data.available_equipment / data.total_equipment) * 100) : 0}
+              size="small"
+              strokeColor="#52c41a"
+              showInfo={false}
+              style={{ marginTop: 8 }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card size="small">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <SyncOutlined style={{ fontSize: 32, color: '#1677ff' }} />
+              <div>
+                <Text type="secondary" style={{ fontSize: 14 }}>{t.inUseEquipment}</Text>
+                <div style={{ fontSize: 24, fontWeight: 600 }}>{data.by_status['in_use'] || 0}</div>
+              </div>
+            </div>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card size="small">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <SettingOutlined style={{ fontSize: 32, color: '#faad14' }} />
+              <div>
+                <Text type="secondary" style={{ fontSize: 14 }}>{t.maintenanceEquipment}</Text>
+                <div style={{ fontSize: 24, fontWeight: 600 }}>{data.by_status['maintenance'] || 0}</div>
+              </div>
+            </div>
+          </Card>
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} lg={12}>
+          <Card size="small" title={t.byCategory}>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={categoryPieData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                  outerRadius={100}
+                  dataKey="value"
+                >
+                  {categoryPieData.map((entry, index) => (
+                    <Cell key={index} fill={entry.color} />
+                  ))}
+                </Pie>
+                <RechartsTooltip formatter={(value) => [value, t.equipmentCount]} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
+        </Col>
+        <Col xs={24} lg={12}>
+          <Card size="small" title={t.byStatus}>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={statusPieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={100}
+                  dataKey="value"
+                  label={({ name, value }) => `${name}: ${value}`}
+                >
+                  {statusPieData.map((entry, index) => (
+                    <Cell key={index} fill={entry.color} />
+                  ))}
+                </Pie>
+                <RechartsTooltip formatter={(value) => [value, t.equipmentCount]} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
+        </Col>
+      </Row>
+
+      <Card size="small" title={t.utilizationByCategory} style={{ marginBottom: 16 }}>
+        <ResponsiveContainer width="100%" height={350}>
+          <BarChart data={utilizationBarData} layout="vertical" margin={{ left: 100 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis type="number" domain={[0, 100]} unit="%" />
+            <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} />
+            <RechartsTooltip formatter={(value) => [`${value}%`, t.utilizationRate]} />
+            <Bar dataKey="utilization" radius={[0, 4, 4, 0]}>
+              {utilizationBarData.map((entry, index) => (
+                <Cell
+                  key={index}
+                  fill={
+                    entry.utilization >= 80 ? '#52c41a' :
+                    entry.utilization >= 50 ? '#1677ff' :
+                    entry.utilization >= 30 ? '#faad14' : '#ff4d4f'
+                  }
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+
+      <Card size="small" title={t.categoryDetails}>
+        <Row gutter={[16, 16]}>
+          {data.by_category.map((cat, index) => (
+            <Col xs={24} sm={12} lg={6} key={cat.category}>
+              <Card 
+                size="small"
+                style={{ borderLeft: `4px solid ${CATEGORY_COLORS[index % CATEGORY_COLORS.length]}` }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <Text strong style={{ fontSize: 14 }}>{getCategoryName(cat)}</Text>
+                  <span style={{ fontSize: 18, fontWeight: 600 }}>
+                    {cat.total_count} <Text type="secondary" style={{ fontSize: 12 }}>{t.units}</Text>
+                  </span>
+                </div>
+                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+                  {t.availableEquipment}: {cat.available_count} | {t.inUseEquipment}: {cat.in_use_count} | {t.maintenanceEquipment}: {cat.maintenance_count}
+                </Text>
+                <Progress
+                  percent={cat.utilization_rate}
+                  size="small"
+                  status={cat.utilization_rate >= 80 ? 'success' : cat.utilization_rate >= 50 ? 'active' : 'exception'}
+                />
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </Card>
+    </>
+  );
+
+  // 甘特图内容
+  const schedulingContent = (
+    <Card size="small">
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
+        <Space>
+          <CalendarOutlined style={{ fontSize: 16, color: '#8c8c8c' }} />
+          <Text strong>{t.ganttChart}</Text>
+        </Space>
+        <Space wrap>
+          <Text type="secondary" style={{ fontSize: 14 }}>{t.dateRange}:</Text>
+          <DatePicker
+            value={ganttStartDate}
+            onChange={(date) => date && setGanttStartDate(date)}
+            size="small"
+          />
+          <span style={{ color: '#d9d9d9' }}>-</span>
+          <DatePicker
+            value={ganttEndDate}
+            onChange={(date) => date && setGanttEndDate(date)}
+            size="small"
+          />
+          <Tooltip title={t.maxRangeWarning}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              (max 7 {language === 'zh' ? '天' : 'days'})
+            </Text>
+          </Tooltip>
+          <Button
+            size="small"
+            icon={<ReloadOutlined />}
+            onClick={() => fetchGanttData()}
+            loading={ganttLoading}
+          />
+        </Space>
+      </div>
+      
+      <Tabs
+        activeKey={activeCategory}
+        onChange={(key) => setActiveCategory(key as EquipmentCategoryKey)}
+        items={tabItems}
+      />
+    </Card>
+  );
 
   if (error) {
     return <Alert message={error} type="error" style={{ margin: 24 }} />;
@@ -507,8 +741,13 @@ export function EquipmentDashboard() {
             <Tooltip title={t.refresh}>
               <Button
                 icon={<ReloadOutlined />}
-                onClick={() => fetchData()}
-                loading={loading}
+                onClick={() => {
+                  fetchData();
+                  if (activeTab === 'scheduling') {
+                    fetchGanttData();
+                  }
+                }}
+                loading={loading || ganttLoading}
               />
             </Tooltip>
           </Space>
@@ -520,202 +759,33 @@ export function EquipmentDashboard() {
           <Spin size="large" />
           <Text type="secondary" style={{ marginTop: 16 }}>{t.loading}</Text>
         </div>
-      ) : data && (
-        <>
-          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-            <Col xs={24} sm={12} lg={6}>
-              <Card size="small">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <ToolOutlined style={{ fontSize: 32, color: '#1677ff' }} />
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 14 }}>{t.totalEquipment}</Text>
-                    <div style={{ fontSize: 24, fontWeight: 600 }}>{data.total_equipment}</div>
-                  </div>
-                </div>
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Card size="small">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <CheckCircleOutlined style={{ fontSize: 32, color: '#52c41a' }} />
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 14 }}>{t.availableEquipment}</Text>
-                    <div style={{ fontSize: 24, fontWeight: 600 }}>{data.available_equipment}</div>
-                  </div>
-                </div>
-                <Progress
-                  percent={data.total_equipment ? Math.round((data.available_equipment / data.total_equipment) * 100) : 0}
-                  size="small"
-                  strokeColor="#52c41a"
-                  showInfo={false}
-                  style={{ marginTop: 8 }}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Card size="small">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <SyncOutlined style={{ fontSize: 32, color: '#1677ff' }} />
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 14 }}>{t.inUseEquipment}</Text>
-                    <div style={{ fontSize: 24, fontWeight: 600 }}>{data.by_status['in_use'] || 0}</div>
-                  </div>
-                </div>
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Card size="small">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <SettingOutlined style={{ fontSize: 32, color: '#faad14' }} />
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 14 }}>{t.maintenanceEquipment}</Text>
-                    <div style={{ fontSize: 24, fontWeight: 600 }}>{data.by_status['maintenance'] || 0}</div>
-                  </div>
-                </div>
-              </Card>
-            </Col>
-          </Row>
-
-          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-            <Col xs={24} lg={12}>
-              <Card size="small" title={t.byCategory}>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={categoryPieData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                      outerRadius={100}
-                      dataKey="value"
-                    >
-                      {categoryPieData.map((entry, index) => (
-                        <Cell key={index} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip formatter={(value) => [value, t.equipmentCount]} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Card>
-            </Col>
-            <Col xs={24} lg={12}>
-              <Card size="small" title={t.byStatus}>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={statusPieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={100}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}
-                    >
-                      {statusPieData.map((entry, index) => (
-                        <Cell key={index} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip formatter={(value) => [value, t.equipmentCount]} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Card>
-            </Col>
-          </Row>
-
-          <Card size="small" title={t.utilizationByCategory} style={{ marginBottom: 16 }}>
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={utilizationBarData} layout="vertical" margin={{ left: 100 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" domain={[0, 100]} unit="%" />
-                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} />
-                <RechartsTooltip formatter={(value) => [`${value}%`, t.utilizationRate]} />
-                <Bar dataKey="utilization" radius={[0, 4, 4, 0]}>
-                  {utilizationBarData.map((entry, index) => (
-                    <Cell
-                      key={index}
-                      fill={
-                        entry.utilization >= 80 ? '#52c41a' :
-                        entry.utilization >= 50 ? '#1677ff' :
-                        entry.utilization >= 30 ? '#faad14' : '#ff4d4f'
-                      }
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </Card>
-
-          <Card size="small" title={t.categoryDetails} style={{ marginBottom: 16 }}>
-            <Row gutter={[16, 16]}>
-              {data.by_category.map((cat, index) => (
-                <Col xs={24} sm={12} lg={6} key={cat.category}>
-                  <Card 
-                    size="small"
-                    style={{ borderLeft: `4px solid ${CATEGORY_COLORS[index % CATEGORY_COLORS.length]}` }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                      <Text strong style={{ fontSize: 14 }}>{getCategoryName(cat)}</Text>
-                      <span style={{ fontSize: 18, fontWeight: 600 }}>
-                        {cat.total_count} <Text type="secondary" style={{ fontSize: 12 }}>{t.units}</Text>
-                      </span>
-                    </div>
-                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
-                      {t.availableEquipment}: {cat.available_count} | {t.inUseEquipment}: {cat.in_use_count} | {t.maintenanceEquipment}: {cat.maintenance_count}
-                    </Text>
-                    <Progress
-                      percent={cat.utilization_rate}
-                      size="small"
-                      status={cat.utilization_rate >= 80 ? 'success' : cat.utilization_rate >= 50 ? 'active' : 'exception'}
-                    />
-                  </Card>
-                </Col>
-              ))}
-            </Row>
-          </Card>
-
-          <Card size="small">
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
-              <Space>
-                <CalendarOutlined style={{ fontSize: 16, color: '#8c8c8c' }} />
-                <Text strong>{t.ganttChart}</Text>
-              </Space>
-              <Space wrap>
-                <Text type="secondary" style={{ fontSize: 14 }}>{t.dateRange}:</Text>
-                <DatePicker
-                  value={ganttStartDate}
-                  onChange={(date) => date && setGanttStartDate(date)}
-                  size="small"
-                />
-                <span style={{ color: '#d9d9d9' }}>-</span>
-                <DatePicker
-                  value={ganttEndDate}
-                  onChange={(date) => date && setGanttEndDate(date)}
-                  size="small"
-                />
-                <Tooltip title={t.maxRangeWarning}>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    (max 7 {language === 'zh' ? '天' : 'days'})
-                  </Text>
-                </Tooltip>
-                <Button
-                  size="small"
-                  icon={<ReloadOutlined />}
-                  onClick={() => fetchGanttData()}
-                  loading={ganttLoading}
-                />
-              </Space>
-            </div>
-            
-            <Tabs
-              activeKey={activeCategory}
-              onChange={(key) => setActiveCategory(key as EquipmentCategoryKey)}
-              items={tabItems}
-            />
-          </Card>
-        </>
+      ) : (
+        <Tabs
+          activeKey={activeTab}
+          onChange={(key) => setActiveTab(key as 'overview' | 'scheduling')}
+          items={[
+            {
+              key: 'overview',
+              label: (
+                <span>
+                  <ToolOutlined style={{ marginRight: 8 }} />
+                  {t.overview}
+                </span>
+              ),
+              children: overviewContent,
+            },
+            {
+              key: 'scheduling',
+              label: (
+                <span>
+                  <CalendarOutlined style={{ marginRight: 8 }} />
+                  {t.scheduling}
+                </span>
+              ),
+              children: schedulingContent,
+            },
+          ]}
+        />
       )}
     </div>
   );
