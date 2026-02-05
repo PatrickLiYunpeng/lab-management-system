@@ -27,7 +27,8 @@ from app.models import (
     Equipment, EquipmentType, EquipmentStatus, EquipmentCategory, EquipmentSchedule,
     Client, Material, MaterialType, MaterialStatus,
     WorkOrder, WorkOrderType, WorkOrderStatus, WorkOrderTask, TaskStatus,
-    StandardCycleTime, Method, MethodType, MethodSkillRequirement
+    StandardCycleTime, Method, MethodType, MethodSkillRequirement,
+    ModulePermission, ModuleCode
 )
 
 
@@ -51,6 +52,7 @@ def clear_all_data(db: Session):
     db.query(User).delete()
     db.query(Laboratory).delete()
     db.query(Site).delete()
+    db.query(ModulePermission).delete()
     
     db.commit()
     print("✓ 已清除所有现有数据")
@@ -839,6 +841,66 @@ def seed_materials(db: Session, labs: list[Laboratory], sites: list[Site],
     print(f"✓ 创建了 {len(materials)} 条物料记录")
 
 
+def seed_module_permissions(db: Session):
+    """创建模块权限种子数据 - 基于2026-02-05配置的权限矩阵"""
+    
+    # 所有模块代码
+    all_modules = [m.value for m in ModuleCode]
+    
+    # 各角色的模块权限配置（基于数据库实际数据）
+    role_permissions = {
+        "admin": [
+            "audit_logs", "clients", "dashboard", "equipment", "handovers",
+            "locations", "materials", "methods", "personnel", "products",
+            "settings", "user_management", "work_orders"
+        ],
+        "manager": [
+            "clients", "dashboard", "equipment", "handovers", "locations",
+            "materials", "methods", "personnel", "products", "user_management",
+            "work_orders"
+        ],
+        "engineer": [
+            "dashboard", "equipment", "handovers", "materials", "methods",
+            "personnel", "work_orders"
+        ],
+        "technician": [
+            "dashboard", "handovers", "materials", "work_orders"
+        ],
+        "viewer": [
+            "work_orders"
+        ],
+    }
+    
+    count = 0
+    for role, accessible_modules in role_permissions.items():
+        for module_code in all_modules:
+            can_access = module_code in accessible_modules
+            perm = ModulePermission(
+                role=role,
+                module_code=module_code,
+                can_access=can_access
+            )
+            db.add(perm)
+            count += 1
+    
+    db.commit()
+    print(f"✓ 创建了 {count} 条模块权限记录 (5角色 × {len(all_modules)}模块)")
+    
+    # 打印权限矩阵摘要
+    print("\n  模块权限矩阵:")
+    print("  " + "-" * 70)
+    header = f"  {'角色':<12}"
+    for role in role_permissions.keys():
+        header += f"{role:<12}"
+    print(header)
+    print("  " + "-" * 70)
+    print(f"  {'可访问模块数':<12}", end="")
+    for role, modules in role_permissions.items():
+        print(f"{len(modules):<12}", end="")
+    print()
+    print("  " + "-" * 70)
+
+
 def run_seed():
     """运行所有种子数据"""
     print("\n" + "="*60)
@@ -862,6 +924,7 @@ def run_seed():
         methods = seed_methods(db, labs, equipment)  # 方法
         work_orders = seed_work_orders_and_tasks(db, labs, sites, clients, users, personnel, equipment)  # 100工单+任务
         seed_materials(db, labs, sites, clients, work_orders)  # 物料
+        seed_module_permissions(db)  # 模块权限
         
         print("\n" + "="*60)
         print("✅ 所有种子数据创建完成！")
