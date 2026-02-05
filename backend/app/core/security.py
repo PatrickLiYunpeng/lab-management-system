@@ -3,8 +3,9 @@
 
 本模块提供JWT令牌处理和密码哈希功能。
 """
+import re
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, List, Tuple
 
 from jose import jwt, JWTError
 from passlib.context import CryptContext
@@ -13,6 +14,48 @@ from app.core.config import settings
 
 # 密码哈希上下文，使用bcrypt算法
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def validate_password_complexity(password: str) -> Tuple[bool, List[str]]:
+    """
+    验证密码复杂度是否符合安全策略
+    
+    根据config.py中的设置进行验证：
+    - 最小长度
+    - 大写字母要求
+    - 小写字母要求
+    - 数字要求
+    - 特殊字符要求
+    
+    Args:
+        password: 待验证的密码
+    
+    Returns:
+        Tuple[bool, List[str]]: (是否通过验证, 错误信息列表)
+    """
+    errors: List[str] = []
+    
+    # 检查最小长度
+    if len(password) < settings.PASSWORD_MIN_LENGTH:
+        errors.append(f"密码长度至少需要 {settings.PASSWORD_MIN_LENGTH} 个字符")
+    
+    # 检查大写字母
+    if settings.PASSWORD_REQUIRE_UPPERCASE and not re.search(r'[A-Z]', password):
+        errors.append("密码必须包含至少一个大写字母")
+    
+    # 检查小写字母
+    if settings.PASSWORD_REQUIRE_LOWERCASE and not re.search(r'[a-z]', password):
+        errors.append("密码必须包含至少一个小写字母")
+    
+    # 检查数字
+    if settings.PASSWORD_REQUIRE_DIGIT and not re.search(r'\d', password):
+        errors.append("密码必须包含至少一个数字")
+    
+    # 检查特殊字符
+    if settings.PASSWORD_REQUIRE_SPECIAL and not re.search(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;\'`~]', password):
+        errors.append("密码必须包含至少一个特殊字符 (!@#$%^&*等)")
+    
+    return (len(errors) == 0, errors)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

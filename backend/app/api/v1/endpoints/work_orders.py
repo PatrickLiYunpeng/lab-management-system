@@ -53,10 +53,11 @@ import csv
 import io
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import case
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.models.work_order import WorkOrder, WorkOrderType, WorkOrderStatus, WorkOrderTask, TaskStatus
 from app.models.laboratory import Laboratory
 from app.models.personnel import Personnel
@@ -107,7 +108,13 @@ def list_work_orders(
     current_user: User = Depends(get_current_active_user)
 ):
     """List all work orders with pagination and filtering."""
-    query = db.query(WorkOrder)
+    # 使用joinedload预加载关联对象，避免N+1查询问题
+    query = db.query(WorkOrder).options(
+        joinedload(WorkOrder.laboratory),
+        joinedload(WorkOrder.client),
+        joinedload(WorkOrder.assigned_engineer).joinedload(Personnel.user),
+        joinedload(WorkOrder.selected_materials)
+    )
     
     if work_order_id:
         query = query.filter(WorkOrder.id == work_order_id)
@@ -178,7 +185,14 @@ def get_work_order(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get a specific work order by ID."""
-    work_order = db.query(WorkOrder).filter(WorkOrder.id == work_order_id).first()
+    # 使用joinedload预加载关联对象，避免N+1查询问题
+    work_order = db.query(WorkOrder).options(
+        joinedload(WorkOrder.laboratory),
+        joinedload(WorkOrder.client),
+        joinedload(WorkOrder.assigned_engineer).joinedload(Personnel.user),
+        joinedload(WorkOrder.selected_materials),
+        joinedload(WorkOrder.tasks)
+    ).filter(WorkOrder.id == work_order_id).first()
     if not work_order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found")
     
@@ -1195,8 +1209,10 @@ def create_task_consumptions(
     批量创建任务材料消耗记录。
     仅支持非样品类型材料（consumable/reagent/tool/other）。
     自动扣减库存并设置状态为"已登记"。
+    使用乐观锁防止并发超卖。
     """
     from sqlalchemy.orm import joinedload
+    from sqlalchemy import update
     from decimal import Decimal
     
     # 验证任务存在且属于指定工单
@@ -1209,63 +1225,90 @@ def create_task_consumptions(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
     
     created_consumptions = []
+    max_retries = settings.OPTIMISTIC_LOCK_MAX_RETRIES
     
     for item in data.consumptions:
-        # 获取材料并验证
-        material = db.query(Material).filter(Material.id == item.material_id).first()
-        if not material:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"材料ID {item.material_id} 不存在"
+        retry_count = 0
+        success = False
+        
+        while retry_count < max_retries and not success:
+            # 获取材料并验证（每次重试都重新获取最新数据）
+            material = db.query(Material).filter(Material.id == item.material_id).first()
+            if not material:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"材料ID {item.material_id} 不存在"
+                )
+            
+            # 验证非样品类型
+            if material.material_type == MaterialType.SAMPLE:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"材料 {material.name} 是样品类型，不支持消耗登记"
+                )
+            
+            # 验证库存充足
+            if material.quantity < item.quantity_consumed:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"材料 {material.name} 库存不足 (当前: {material.quantity}, 需要: {item.quantity_consumed})"
+                )
+            
+            # 计算总成本
+            total_cost = None
+            if item.unit_price is not None:
+                total_cost = Decimal(str(item.unit_price)) * item.quantity_consumed
+            
+            # 创建消耗记录
+            consumption = MaterialConsumption(
+                material_id=item.material_id,
+                task_id=task_id,
+                quantity_consumed=item.quantity_consumed,
+                unit_price=Decimal(str(item.unit_price)) if item.unit_price is not None else None,
+                total_cost=total_cost,
+                status=ConsumptionStatus.REGISTERED,
+                notes=item.notes,
+                created_by_id=current_user.id
             )
-        
-        # 验证非样品类型
-        if material.material_type == MaterialType.SAMPLE:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"材料 {material.name} 是样品类型，不支持消耗登记"
+            db.add(consumption)
+            
+            # 使用乐观锁扣减库存
+            # 只有当version匹配时才更新，同时递增version
+            current_version = material.version
+            result = db.execute(
+                update(Material)
+                .where(Material.id == item.material_id)
+                .where(Material.version == current_version)
+                .where(Material.quantity >= item.quantity_consumed)  # 再次检查库存
+                .values(
+                    quantity=Material.quantity - item.quantity_consumed,
+                    version=Material.version + 1
+                )
             )
-        
-        # 验证库存充足
-        if material.quantity < item.quantity_consumed:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"材料 {material.name} 库存不足 (当前: {material.quantity}, 需要: {item.quantity_consumed})"
+            
+            if result.rowcount == 0:
+                # 更新失败，可能是版本冲突或库存不足
+                db.rollback()
+                retry_count += 1
+                if retry_count >= max_retries:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"材料 {material.name} 库存更新失败，请重试（可能存在并发冲突或库存不足）"
+                    )
+                continue
+            
+            # 记录库存变动历史
+            history = MaterialHistory(
+                material_id=material.id,
+                from_status=material.status,
+                to_status=material.status,
+                notes=f"消耗登记: 任务 {task.task_number}, 数量 {item.quantity_consumed}",
+                changed_by_id=current_user.id
             )
-        
-        # 计算总成本
-        total_cost = None
-        if item.unit_price is not None:
-            total_cost = Decimal(str(item.unit_price)) * item.quantity_consumed
-        
-        # 创建消耗记录
-        consumption = MaterialConsumption(
-            material_id=item.material_id,
-            task_id=task_id,
-            quantity_consumed=item.quantity_consumed,
-            unit_price=Decimal(str(item.unit_price)) if item.unit_price is not None else None,
-            total_cost=total_cost,
-            status=ConsumptionStatus.REGISTERED,
-            notes=item.notes,
-            created_by_id=current_user.id
-        )
-        db.add(consumption)
-        
-        # 扣减库存
-        material.quantity -= item.quantity_consumed
-        
-        # 记录库存变动历史
-        history = MaterialHistory(
-            material_id=material.id,
-            action="consumption",
-            old_status=material.status.value if material.status else None,
-            new_status=material.status.value if material.status else None,
-            notes=f"消耗登记: 任务 {task.task_number}, 数量 {item.quantity_consumed}",
-            performed_by_id=current_user.id
-        )
-        db.add(history)
-        
-        created_consumptions.append(consumption)
+            db.add(history)
+            
+            created_consumptions.append(consumption)
+            success = True
     
     db.commit()
     

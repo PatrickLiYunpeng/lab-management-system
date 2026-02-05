@@ -234,6 +234,9 @@ class Material(Base):
     # 时间戳
     created_at = Column(DateTime, default=utcnow)                   # 创建时间
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)  # 更新时间
+    
+    # 乐观锁版本号（用于并发控制）
+    version = Column(Integer, default=1, nullable=False)
 
     # 关联关系
     laboratory = relationship("Laboratory", backref="materials")                   # 所属实验室

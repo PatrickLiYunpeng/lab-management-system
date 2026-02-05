@@ -23,6 +23,9 @@ slowapi==0.1.9
 # Email
 fastapi-mail==1.4.1
 
+# Monitoring
+prometheus-client==0.19.0
+
 # Testing
 pytest==7.4.4
 pytest-asyncio==0.23.3

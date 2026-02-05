@@ -23,7 +23,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import create_access_token
+from app.core.security import create_access_token, validate_password_complexity
 from app.core.rate_limit import limiter, RateLimits, get_client_ip
 from app.core.logging_service import log_service
 from app.schemas.user import (
@@ -192,6 +192,7 @@ def register(
     用户注册
     
     创建新用户账号。用户名和邮箱必须唯一。
+    密码必须满足复杂度要求（长度、大小写、数字、特殊字符）。
     
     Args:
         user_data: 用户注册信息（用户名、邮箱、密码等）
@@ -201,9 +202,27 @@ def register(
         UserResponse: 创建成功的用户信息
     
     Raises:
-        400 Bad Request: 用户名或邮箱已存在
+        400 Bad Request: 用户名或邮箱已存在，或密码不符合复杂度要求
     """
     client_ip = get_client_ip(request)
+    
+    # 验证密码复杂度
+    is_valid, password_errors = validate_password_complexity(user_data.password)
+    if not is_valid:
+        log_service.log_auth(
+            action="register",
+            username=user_data.username,
+            success=False,
+            ip_address=client_ip,
+            reason="Password complexity requirements not met"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": "密码不符合复杂度要求",
+                "errors": password_errors
+            }
+        )
     
     # 检查用户名是否已存在
     if get_user_by_username(db, user_data.username):
@@ -331,6 +350,7 @@ def change_password(
     修改密码
     
     用户修改自己的密码，需要验证当前密码。
+    新密码必须满足复杂度要求（长度、大小写、数字、特殊字符）。
     
     Args:
         password_data: 包含当前密码和新密码
@@ -341,9 +361,27 @@ def change_password(
         成功消息
     
     Raises:
-        400 Bad Request: 当前密码错误
+        400 Bad Request: 当前密码错误或新密码不符合复杂度要求
     """
     client_ip = get_client_ip(request)
+    
+    # 验证新密码复杂度
+    is_valid, password_errors = validate_password_complexity(password_data.new_password)
+    if not is_valid:
+        log_service.log_auth(
+            action="change_password",
+            username=current_user.username,
+            success=False,
+            ip_address=client_ip,
+            reason="Password complexity requirements not met"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": "新密码不符合复杂度要求",
+                "errors": password_errors
+            }
+        )
     
     # 验证当前密码
     user = authenticate_user(db, current_user.username, password_data.current_password)
